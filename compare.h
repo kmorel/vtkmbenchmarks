@@ -12,7 +12,7 @@
 #include <iostream>
 #include <vector>
 
-static const int NUM_TRIALS = 20;
+static const int NUM_TRIALS = 2;
 
 static vtkSmartPointer<vtkImageData>
 ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleSize=1.0)

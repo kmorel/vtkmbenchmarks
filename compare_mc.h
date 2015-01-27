@@ -350,18 +350,22 @@ static void RunvtkmMarchingCubes(int vdims[3],
     ClassifyDispatcher classifyCellDispatcher(cellClassify);
     classifyCellDispatcher.Invoke(cellCountImplicitArray, caseInfoArray);
 
+
     // Determine which cells are "valid" (i.e., produce geometry), and perform
-    //an inclusive scan to get running total of the number of "valid" cells
+    // an inclusive scan to get running total of the number of "valid" cells
     vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
     {
     vtkm::cont::ArrayHandle<vtkm::Id> validCellEnumArray;
     vtkm::worklet::DispatcherMapField<IsValidCell> isValidCellDispatcher;
     isValidCellDispatcher.Invoke(caseInfoArray, validCellEnumArray);
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(validCellEnumArray, validCellEnumArray);
 
+    // use the return value from ScanInclusive which doesn't pull down
+    // the entire array
+    const vtkm::Id numValidCells =
+        vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(validCellEnumArray,
+                                                                         validCellEnumArray);
 
     // Return if no cells generate geometry
-    unsigned int numValidCells = validCellEnumArray.GetPortalConstControl().Get(validCellEnumArray.GetNumberOfValues() - 1);
     if (numValidCells == 0) return;
 
     // Use UpperBounds, a "permutation", and an exclusive scan to compute the starting output vertex index for each cell
@@ -372,20 +376,20 @@ static void RunvtkmMarchingCubes(int vdims[3],
                                                                    validCellIndicesArray);
     }
 
+
     vtkm::cont::ArrayHandle<vtkm::Id> outputVerticesEnumArray;
 
+    int numTotalVertices = 0;
     {
     vtkm::cont::ArrayHandle<vtkm::Id> validVerticesArray;
     vtkm::worklet::DispatcherMapField< Permute > permuteDispatcher( (Permute(caseInfoArray)) );
     permuteDispatcher.Invoke(validCellIndicesArray, validVerticesArray);
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(validVerticesArray,
-                                                                     outputVerticesEnumArray);
+    // Set-up where to write into output tri list and at the same time
+    // Determine the total number of output vertices without having to pull
+    // down the entire array from device memory
+    numTotalVertices = vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(validVerticesArray,
+                                                                                        outputVerticesEnumArray);
     }
-
-    // Determine the total number of output vertices
-    int numTotalVertices = caseInfoArray.GetPortalConstControl().Get(validCellIndicesArray.GetPortalConstControl().Get(validCellIndicesArray.GetNumberOfValues()-1)).second +
-                           outputVerticesEnumArray.GetPortalConstControl().Get(outputVerticesEnumArray.GetNumberOfValues()-1);
-
     vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
 
@@ -409,8 +413,11 @@ static void RunvtkmMarchingCubes(int vdims[3],
 
     double time = timer.GetElapsedTime();
     if(!silent)
+      {
       std::cout << "vtkm," << device << "," << time << "," << i << std::endl;
+      }
     }
+
 }
 
 static void RunVTKMarchingCubes(vtkImageData* image, int MAX_NUM_TRIALS)
