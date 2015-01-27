@@ -277,7 +277,6 @@ const int numVerticesTable[256] = {
     0,
 };
 
-
 const int triTable[256*16] =
 {
 #define X -1
