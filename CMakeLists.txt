@@ -4,10 +4,10 @@ project(VTKMBenchmark CXX)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${mccompare_SOURCE_DIR})
 
-include_directories("/Users/robert/Work/vtkm/src/")
-include_directories("/Users/robert/Work/vtkm/cbuild/")
-
-find_package(Cuda)
+find_package(VTKm REQUIRED)
+include(VTKmMacros)
+vtkm_configure_device(Serial)
+vtkm_configure_device(Cuda)
 
 find_package(VTK 6.2
   COMPONENTS
@@ -31,7 +31,7 @@ set_source_files_properties(compare.h
 set(srcs
   compare.h
   compare_mc.h
-  compare_thresh.h
+  # compare_thresh.h
   ArgumentsParser.cxx
   )
 
