@@ -322,14 +322,14 @@ public:
 
 static const vtkm::Float32 ISO_VALUE=0.07;
 
-static void RunvtkmMarchingCubes(int dims[3],
+static void RunvtkmMarchingCubes(int vdims[3],
                                  std::vector<vtkm::Float32>& buffer,
                                  std::string device,
                                  int MAX_NUM_TRIALS,
                                  bool silent=false)
 {
-  int dim3 = dims[0]*dims[1]*dims[2];
-  int vdim[3] = { dims[0]+1, dims[1]+1, dims[2]+1 };
+  int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
+  int dim3 = dims[0] * dims[1] * dims[2];
 
   //construct the scheduler that will execute all the worklets
   vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
@@ -350,7 +350,7 @@ static void RunvtkmMarchingCubes(int dims[3],
     typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
     //classify each cell
-    CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdim );
+    CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
     ClassifyDispatcher classifyCellDispatcher(cellClassify);
     std::cout << __LINE__<< std::endl;
     classifyCellDispatcher.Invoke(cellCountImplicitArray, caseInfoArray);
@@ -387,7 +387,7 @@ static void RunvtkmMarchingCubes(int dims[3],
     vtkm::cont::ArrayHandle<vtkm::Id> validVerticesArray, outputVerticesEnumArray;
     vtkm::worklet::DispatcherMapField< Permute > permuteDispatcher( (Permute(caseInfoArray)) );
     std::cout << __LINE__<< std::endl;
-    permuteDispatcher.Invoke(validCellIndicesArray, validVerticesArray);\
+    permuteDispatcher.Invoke(validCellIndicesArray, validVerticesArray);
     std::cout << __LINE__<< std::endl;
     vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(validVerticesArray, outputVerticesEnumArray);
 
@@ -406,7 +406,7 @@ static void RunvtkmMarchingCubes(int dims[3],
 
     typedef IsosurfaceFunctorUniformGrid<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
     IsoSurfaceFunctor isosurface(ISO_VALUE,
-                                 vdim,
+                                 vdims,
                                  outputVerticesEnumArray,
                                  caseInfoArray,
                                  field,
