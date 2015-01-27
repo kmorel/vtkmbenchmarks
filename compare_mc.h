@@ -196,8 +196,8 @@ template <typename FieldType, typename OutputType>
 class IsosurfaceFunctorUniformGrid : public vtkm::worklet::WorkletMapField
 {
 public:
-  typedef void ControlSignature(FieldIn<IdType> inputCellId);
-  typedef void ExecutionSignature(_1);
+  typedef void ControlSignature(FieldIn<IdType> inputCellId, FieldIn<IdType> outputVertId);
+  typedef void ExecutionSignature(_1, _2);
   typedef _1 InputDomain;
 
   typedef typename PortalTypes< vtkm::Id >::PortalConst IdPortalType;
@@ -222,18 +222,16 @@ public:
   VTKM_CONT_EXPORT
   IsosurfaceFunctorUniformGrid(const float isovalue,
                                const int dims[3],
-                               const T & outputVerticesEnum,
-                               const U & caseInfo,
-                               const V & field,
-                               const V & source,
-                               const T & triangleTable,
+                               const T & caseInfo,
+                               const U & field,
+                               const U & source,
+                               const V & triangleTable,
                                const W & vertices,
                                const X & scalars):
   isovalue(isovalue),
   xdim(dims[0]), ydim(dims[1]), zdim(dims[2]),
   xmin(-1), ymin(-1), zmin(-1),
   xmax(1), ymax(1), zmax(1),
-  outputVerticesEnum( outputVerticesEnum.PrepareForInput( DeviceAdapter() ) ),
   caseInfo( caseInfo.PrepareForInput( DeviceAdapter() ) ),
   field( field.PrepareForInput( DeviceAdapter() ) ),
   source( source.PrepareForInput( DeviceAdapter() ) ),
@@ -246,20 +244,19 @@ public:
   }
 
   VTKM_EXEC_EXPORT
-  void operator()(const vtkm::Id &cellId) const
+  void operator()(vtkm::Id inputCellId, vtkm::Id outputVertId) const
   {
     // Get data for this cell
-    const int outputVertId = this->outputVerticesEnum.Get(cellId);
-    const int cubeindex    = caseInfo.Get(cellId).first;
-    const int numVertices  = caseInfo.Get(cellId).second;
+    const int cubeindex    = caseInfo.Get(inputCellId).first;
+    const int numVertices  = caseInfo.Get(inputCellId).second;
     const int verticesForEdge[] = { 0, 1, 1, 2, 3, 2, 0, 3,
                               4, 5, 5, 6, 7, 6, 4, 7,
                               0, 4, 1, 5, 2, 6, 3, 7 };
 
     // Compute 3D indices of this cell
-    int x = cellId % (xdim - 1);
-    int y = (cellId / (xdim - 1)) % (ydim - 1);
-    int z = cellId / cellsPerLayer;
+    int x = inputCellId % (xdim - 1);
+    int y = (inputCellId / (xdim - 1)) % (ydim - 1);
+    int z = inputCellId / cellsPerLayer;
 
     // Compute indices for the eight vertices of this cell
     int i[8];
@@ -332,11 +329,10 @@ static void RunvtkmMarchingCubes(int vdims[3],
   int dim3 = dims[0] * dims[1] * dims[2];
 
   //construct the scheduler that will execute all the worklets
-  vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
-
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
     {
     vtkm::cont::Timer<> timer;
+    vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
 
     // Set up the Marching Cubes tables
     vtkm::cont::ArrayHandle<vtkm::Id> vertexTableArray = vtkm::cont::make_ArrayHandle(numVerticesTable, 256);
@@ -352,47 +348,39 @@ static void RunvtkmMarchingCubes(int vdims[3],
     //classify each cell
     CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
     ClassifyDispatcher classifyCellDispatcher(cellClassify);
-    std::cout << __LINE__<< std::endl;
     classifyCellDispatcher.Invoke(cellCountImplicitArray, caseInfoArray);
-    std::cout << __LINE__<< std::endl;
 
     // Determine which cells are "valid" (i.e., produce geometry), and perform
     //an inclusive scan to get running total of the number of "valid" cells
+    vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
+    {
     vtkm::cont::ArrayHandle<vtkm::Id> validCellEnumArray;
     vtkm::worklet::DispatcherMapField<IsValidCell> isValidCellDispatcher;
-    std::cout << __LINE__<< std::endl;
     isValidCellDispatcher.Invoke(caseInfoArray, validCellEnumArray);
-    std::cout << __LINE__<< std::endl;
-
-    std::cout << __LINE__<< std::endl;
     vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(validCellEnumArray, validCellEnumArray);
-    std::cout << __LINE__<< std::endl;
+
 
     // Return if no cells generate geometry
     unsigned int numValidCells = validCellEnumArray.GetPortalConstControl().Get(validCellEnumArray.GetNumberOfValues() - 1);
     if (numValidCells == 0) return;
 
     // Use UpperBounds, a "permutation", and an exclusive scan to compute the starting output vertex index for each cell
-    std::cout << "numValidCells: " << numValidCells << std::endl;
-    vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
+
     vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numValidCells);
     vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(validCellEnumArray,
                                                                    validCellCountImplicitArray,
                                                                    validCellIndicesArray);
+    }
 
-    //no need for validCellEnumArray so remove it from device
-    validCellEnumArray.ReleaseResourcesExecution();
-    std::cout << __LINE__<< std::endl;
+    vtkm::cont::ArrayHandle<vtkm::Id> outputVerticesEnumArray;
 
-    vtkm::cont::ArrayHandle<vtkm::Id> validVerticesArray, outputVerticesEnumArray;
+    {
+    vtkm::cont::ArrayHandle<vtkm::Id> validVerticesArray;
     vtkm::worklet::DispatcherMapField< Permute > permuteDispatcher( (Permute(caseInfoArray)) );
-    std::cout << __LINE__<< std::endl;
     permuteDispatcher.Invoke(validCellIndicesArray, validVerticesArray);
-    std::cout << __LINE__<< std::endl;
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(validVerticesArray, outputVerticesEnumArray);
-
-    validVerticesArray.ReleaseResourcesExecution();
-    std::cout << __LINE__<< std::endl;
+    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(validVerticesArray,
+                                                                     outputVerticesEnumArray);
+    }
 
     // Determine the total number of output vertices
     int numTotalVertices = caseInfoArray.GetPortalConstControl().Get(validCellIndicesArray.GetPortalConstControl().Get(validCellIndicesArray.GetNumberOfValues()-1)).second +
@@ -401,13 +389,11 @@ static void RunvtkmMarchingCubes(int vdims[3],
     vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
 
-    std::cout << "numTotalVertices: " << numTotalVertices << std::endl;
 
 
     typedef IsosurfaceFunctorUniformGrid<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
     IsoSurfaceFunctor isosurface(ISO_VALUE,
                                  vdims,
-                                 outputVerticesEnumArray,
                                  caseInfoArray,
                                  field,
                                  field,
@@ -416,12 +402,9 @@ static void RunvtkmMarchingCubes(int vdims[3],
                                  scalarsArray.PrepareForOutput(numTotalVertices, DeviceAdapter())
                                  );
 
-    std::cout << __LINE__<< std::endl;
     vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
 
-    std::cout << __LINE__<< std::endl;
-    isosurfaceDispatcher.Invoke(validCellIndicesArray);
-    std::cout << __LINE__<< std::endl;
+    isosurfaceDispatcher.Invoke(validCellIndicesArray, outputVerticesEnumArray);
 
 
     double time = timer.GetElapsedTime();
