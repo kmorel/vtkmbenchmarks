@@ -409,7 +409,7 @@ static void RunVTKMarchingCubes(vtkImageData* image, int MAX_NUM_TRIALS)
     vtkm::cont::Timer<> timer;
 
     marching->ComputeGradientsOff();
-    marching->ComputeNormalsOn();
+    marching->ComputeNormalsOff();
     marching->ComputeScalarsOn();
     marching->SetNumberOfContours(1);
     marching->SetValue(0, ISO_VALUE);
