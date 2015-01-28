@@ -303,9 +303,6 @@ static void RunvtkmMarchingCubes(int vdims[3],
     vtkm::cont::ArrayHandle<vtkm::Id> outputVerticesLocArray;
     int numTotalVertices = 0;
     {
-    //first count how many cells we need to generate in total
-    vtkm::cont::ArrayHandle< vtkm::Id> outputCellsWriteLocation;
-
     const vtkm::Id numValidInputCells =
         vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
                                                                          cellHasOutput);
@@ -329,7 +326,6 @@ static void RunvtkmMarchingCubes(int vdims[3],
     vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
 
-    std::cout << numTotalVertices  << std::endl;
     typedef IsosurfaceFunctorUniformGrid<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
     IsoSurfaceFunctor isosurface(ISO_VALUE,
                                  vdims,
@@ -345,10 +341,10 @@ static void RunvtkmMarchingCubes(int vdims[3],
 
     isosurfaceDispatcher.Invoke(validCellIndicesArray, outputVerticesLocArray);
 
-
     double time = timer.GetElapsedTime();
     if(!silent)
       {
+      std::cout << "num cells: " << (numTotalVertices/3)  << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << i << std::endl;
       }
     }
@@ -370,15 +366,15 @@ static void RunVTKMarchingCubes(vtkImageData* image, int MAX_NUM_TRIALS)
     vtkm::cont::Timer<> timer;
 
     marching->ComputeGradientsOff();
-    marching->ComputeNormalsOn();
+    marching->ComputeNormalsOff();
     marching->ComputeScalarsOn();
     marching->SetNumberOfContours(1);
     marching->SetValue(0, ISO_VALUE);
 
     marching->Update();
 
-    std::cout << marching->GetOutput()->GetNumberOfCells() << std::endl;
     double time = timer.GetElapsedTime();
+    std::cout << "num cells: " << marching->GetOutput()->GetNumberOfCells() << std::endl;
     std::cout << "VTK,Serial," << time << "," << i << std::endl;
     }
 }
