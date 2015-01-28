@@ -361,8 +361,12 @@ static void RunvtkmMarchingCubes(int vdims[3],
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
     {
     vtkm::cont::Timer<> timer;
-    const bool fuse4Cells = (dim3%4 == 0);
-    const bool fuse3Cells = (dim3%3 == 0);
+
+    //currently the fusing is disabled as it isn't the current bottleneck
+    //instead we need to schedule writing to happen per output triangle
+
+    const bool fuse4Cells = false; //(dim3%4 == 0);
+    const bool fuse3Cells = false; //(dim3%3 == 0);
     //setup the iso field to contour
     vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
 
