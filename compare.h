@@ -64,11 +64,6 @@ int RunComparison(std::string device, std::string file, int pipeline)
   //pipeline 1 is equal to threshold
   if(pipeline <= 1)
   {
-    std::cout << "Warming up the machine" << std::endl;
-    //warm up the card, whatever algorithm we run first will get a performance
-    //hit for the first 10 iterations if we don't run something first
-    // RunvtkmThreshold(dims,buffer,device,2,true);
-
     //print out header of csv
     std::cout << "Benchmarking Threshold" << std::endl;
 
@@ -82,11 +77,6 @@ int RunComparison(std::string device, std::string file, int pipeline)
   }
   else //marching cubes
   {
-    std::cout << "Warming up the machine" << std::endl;
-    //warm up the card, whatever algorithm we run first will get a performance
-    //hit for the first 10 iterations if we don't run something first
-    RunvtkmMarchingCubes(dims,buffer,device,2,true);
-
     std::cout << "Benchmarking Marching Cubes" << std::endl;
 
     std::cout << "VTKM,Accelerator,Time,Trial" << std::endl;
