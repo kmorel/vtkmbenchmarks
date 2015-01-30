@@ -269,27 +269,33 @@ static void doLayeredMarchingCubes( int vdims[3],
                              std::vector< vtkm::cont::ArrayHandle<vtkm::Float32> >& scalarsArrays,
                              std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > >& verticesArrays,
                              int count,
-                             int layersToFuse)
+                             int numberOfLayers)
 {
   // Set up the Marching Cubes tables
   vtkm::cont::ArrayHandle<vtkm::Id> vertexTableArray = vtkm::cont::make_ArrayHandle(numVerticesTable, 256);
   vtkm::cont::ArrayHandle<vtkm::Id> triangleTableArray = vtkm::cont::make_ArrayHandle(triTable, 256*16);
 
   //setup the vector of outputs
-  scalarsArrays.resize( layersToFuse );
-  verticesArrays.resize( layersToFuse );
+  int cellsInLayer = count/numberOfLayers;
+  int remainderCells = count%numberOfLayers;
 
-  int cellsInLayer = count/layersToFuse;
+  scalarsArrays.resize( numberOfLayers );
+  verticesArrays.resize( numberOfLayers );
+  std::cout << "numberOfLayers: " << numberOfLayers << std::endl;
 
-  for(int i=0; i < layersToFuse; ++i)
+  for(int i=0; i < numberOfLayers; ++i)
     {
     vtkm::cont::ArrayHandle< vtkm::Id > cellHasOutput;
     vtkm::cont::ArrayHandle< vtkm::Id > numOutputVertsPerCell;
 
     vtkm::Id startI = cellsInLayer * i;
+    vtkm::Id size = cellsInLayer;
+    if( remainderCells != 0 && (i+1) == numberOfLayers)
+      { size += remainderCells; }
+
     // Call the ClassifyCell functor to compute the Marching Cubes case
     //numbers for each cell, and the number of vertices to be generated
-    vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(startI, cellsInLayer);
+    vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(startI, size);
     typedef ClassifyCell< vtkm::Float32 > CellClassifyFunctor;
     typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
@@ -311,8 +317,7 @@ static void doLayeredMarchingCubes( int vdims[3],
         vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputVertsPerCell,
                                                                          outputVerticesLocArray);
     // Return if no cells generate geometry
-    if (numTotalVertices == 0) return;
-
+    if (numTotalVertices == 0) continue;
 
     //compute the original cell ids that will produce output. We do this by
     //figuring out for each output cell value what input cell generates it
@@ -350,10 +355,10 @@ static void doLayeredMarchingCubes( int vdims[3],
 };
 
 static void RunMarchingCubes(int vdims[3],
-                                 std::vector<vtkm::Float32>& buffer,
-                                 std::string device,
-                                 int MAX_NUM_TRIALS,
-                                 bool silent=false)
+                             std::vector<vtkm::Float32>& buffer,
+                             std::string device,
+                             int MAX_NUM_TRIALS,
+                             bool silent=false)
 {
   int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
   int dim3 = dims[0] * dims[1] * dims[2];
@@ -364,18 +369,17 @@ static void RunMarchingCubes(int vdims[3],
     vtkm::cont::Timer<> timer;
 
 
-    const int numberOfSlices[10] = {100, 64, 32, 25, 16, 8, 5, 4, 3, 1};
-    const bool ifNumberOfSlicesIsPossible[10] = { (dims[2]%100 == 0),
-                                                  (dims[2]%64 == 0),
-                                                  (dims[2]%32 == 0),
-                                                  (dims[2]%25 == 0),
-                                                  (dims[2]%16 == 0),
-                                                  (dims[2]%8 == 0),
-                                                  (dims[2]%5 == 0),
-                                                  (dims[2]%4 == 0),
-                                                  (dims[2]%3 == 0),
-                                                  true
-                                                };
+    const int numberOfSlices[9] = {64, 32, 25, 16, 8, 5, 4, 3, 1};
+    const int widthOfEachSlice[9] = { (dims[2]/64),
+                                      (dims[2]/32),
+                                      (dims[2]/25),
+                                      (dims[2]/16),
+                                      (dims[2]/8 ),
+                                      (dims[2]/5 ),
+                                      (dims[2]/4 ),
+                                      (dims[2]/3 ),
+                                      10000000
+                                     };
 
     //setup the iso field to contour
     vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
@@ -385,12 +389,11 @@ static void RunMarchingCubes(int vdims[3],
     std::vector< vtkm::cont::ArrayHandle<vtkm::Float32> > scalarsArrays;
     std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > > verticesArrays;
 
-    //find the best number of slices to subdivide this grid by
-    for(int s=0; s < 10; ++s)
+    // find the best number of slices to subdivide this grid by
+    for(int s=0; s < 9; ++s)
       {
-      if( ifNumberOfSlicesIsPossible[s] == true)
+      if( widthOfEachSlice[s] >= 16)
         {
-        std::cout << "sliced the grid: " << numberOfSlices[s] << " times " << std::endl;
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
                                 dim3, numberOfSlices[s]);
         break;
