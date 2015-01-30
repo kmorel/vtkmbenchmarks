@@ -2,6 +2,8 @@
 static const float ISO_VALUE=0.07;
 
 #include "isosurface.h"
+#include "worklets.h"
+
 #include "compare_mc.h"
 #include "compare_sliding_mc.h"
 #include "compare_lowmem_mc.h"
