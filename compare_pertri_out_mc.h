@@ -48,15 +48,14 @@ static void doMarchingCubes( int vdims[3],
 
   for(int i=0; i < 5; ++i)
     {
-    vtkm::cont::ArrayHandle< vtkm::Id > cellOutputIncSum;
     vtkm::cont::ArrayHandle< vtkm::Id > validCellIndicesArray;
 
     const vtkm::Id numValidInputCells =
       vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
-                                                                       cellOutputIncSum);
+                                                                       cellHasOutput);
 
     vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numValidInputCells);
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellOutputIncSum,
+    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellHasOutput,
                                                                    validCellCountImplicitArray,
                                                                    validCellIndicesArray);
 
@@ -92,9 +91,12 @@ static void doMarchingCubes( int vdims[3],
     typedef worklets::DecrementCounts DecCountFunctor;
     typedef vtkm::worklet::DispatcherMapField< DecCountFunctor > DecDispatcher;
 
+    //need to pass cellHasOutput and numOutputVertsPerCell as part of the
+    //constructor as they need to modified in place, which we can't do
+    //through a worklet currently
     DecCountFunctor decFunc(numValidInputCells, cellHasOutput, numOutputVertsPerCell);
     DecDispatcher decCellCountDispatcher( decFunc );
-    decCellCountDispatcher.Invoke(validCellIndicesArray);
+    decCellCountDispatcher.Invoke(cellCountImplicitArray);
     }
 
 };

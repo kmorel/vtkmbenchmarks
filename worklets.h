@@ -512,11 +512,19 @@ public:
   void operator()(vtkm::Id currentCell) const
   {
     vtkm::Id vertCount = this->VertexCount.Get(currentCell);
-    vertCount -= 3;
-    const vtkm::Id hasOutput = (vertCount == 0) ? 0 : 1;
+    if(vertCount == 0)
+      {
+      this->CellHasOutput.Set(currentCell, 0);
+      }
+    else
+      {
+      vertCount -= 3;
+      const vtkm::Id hasOutput = (vertCount == 0) ? 0 : 1;
+      this->CellHasOutput.Set(currentCell, hasOutput);
+      this->VertexCount.Set(currentCell, vertCount);
+      }
 
-    this->CellHasOutput.Set(currentCell, hasOutput);
-    this->VertexCount.Set(currentCell, vertCount);
+
   }
 };
 
