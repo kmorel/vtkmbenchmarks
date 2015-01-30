@@ -111,11 +111,8 @@ static void RunMarchingCubes(int vdims[3],
       field = vtkm::cont::make_ArrayHandle(buffer);
       }
 
-    //currently the fusing is disabled as it isn't the current bottleneck
-    //instead we need to schedule writing to happen per output triangle
-
-    const bool fuse4Cells = false; //(dim3%4 == 0);
-    const bool fuse3Cells = false; //(dim3%3 == 0);
+    const bool fuse4Cells = (dim3%4 == 0);
+    const bool fuse3Cells = (dim3%3 == 0);
 
     //classify each cell, and merge classification of cells based on if
     //we can fuse 3 or 4 cells at a time
