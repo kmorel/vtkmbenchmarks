@@ -1,5 +1,12 @@
 
+static const float ISO_VALUE=0.07;
+
+#include "isosurface.h"
+#include "worklets.h"
+
 #include "compare_mc.h"
+#include "compare_sliding_mc.h"
+#include "compare_lowmem_mc.h"
 // #include "compare_thresh.h"
 
 #include <vtkDataArray.h>
@@ -12,7 +19,8 @@
 #include <iostream>
 #include <vector>
 
-static const int NUM_TRIALS = 2;
+static const int NUM_TRIALS = 8;
+
 
 static vtkSmartPointer<vtkImageData>
 ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleSize=1.0)
@@ -50,11 +58,9 @@ ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleS
 }
 
 
-int RunComparison(std::string device, std::string file, int pipeline)
+int RunComparison(std::string device, std::string file, int pipeline, double resample_ratio)
 {
-
   std::vector<vtkm::Float32> buffer;
-  double resample_ratio = 1.0; //full data
   vtkSmartPointer< vtkImageData > image = ReadData(buffer, file, resample_ratio);
 
   //get dims of image data
@@ -64,11 +70,6 @@ int RunComparison(std::string device, std::string file, int pipeline)
   //pipeline 1 is equal to threshold
   if(pipeline <= 1)
   {
-    std::cout << "Warming up the machine" << std::endl;
-    //warm up the card, whatever algorithm we run first will get a performance
-    //hit for the first 10 iterations if we don't run something first
-    // RunvtkmThreshold(dims,buffer,device,2,true);
-
     //print out header of csv
     std::cout << "Benchmarking Threshold" << std::endl;
 
@@ -82,15 +83,16 @@ int RunComparison(std::string device, std::string file, int pipeline)
   }
   else //marching cubes
   {
-    std::cout << "Warming up the machine" << std::endl;
-    //warm up the card, whatever algorithm we run first will get a performance
-    //hit for the first 10 iterations if we don't run something first
-    RunvtkmMarchingCubes(dims,buffer,device,2,true);
-
     std::cout << "Benchmarking Marching Cubes" << std::endl;
 
-    std::cout << "VTKM,Accelerator,Time,Trial" << std::endl;
-    RunvtkmMarchingCubes(dims,buffer,device,NUM_TRIALS);
+    std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
+    try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+
+    // std::cout << "VTKM Low Mem Inclusive Scan,Accelerator,Time,Trial" << std::endl;
+    // low_mem::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
+
+    std::cout << "VTKM Sliding Window,Accelerator,Time,Trial" << std::endl;
+    try{ slide::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {

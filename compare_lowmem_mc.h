@@ -17,7 +17,7 @@
 
 #include <vector>
 
-namespace mc {
+namespace low_mem{
 
 //now that the device adapter is included set a global typedef
 //that is the chosen device tag
@@ -98,30 +98,24 @@ static void RunMarchingCubes(int vdims[3],
   int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
   int dim3 = dims[0] * dims[1] * dims[2];
 
-
   vtkm::cont::ArrayHandle<vtkm::Float32> field;
   //construct the scheduler that will execute all the worklets
   for(int trial=0; trial < MAX_NUM_TRIALS; ++trial)
     {
     vtkm::cont::Timer<> timer;
+    const bool fuse4Cells = (dim3%4 == 0);
+    const bool fuse3Cells = (dim3%3 == 0);
 
     //setup the iso field to contour
+    vtkm::cont::ArrayHandle<vtkm::Float32> field;
     if(trial < MAX_NUM_TRIALS/2)
       {
       field = vtkm::cont::make_ArrayHandle(buffer);
       }
-
-    //currently the fusing is disabled as it isn't the current bottleneck
-    //instead we need to schedule writing to happen per output triangle
-
-    const bool fuse4Cells = false; //(dim3%4 == 0);
-    const bool fuse3Cells = false; //(dim3%3 == 0);
-
     //classify each cell, and merge classification of cells based on if
     //we can fuse 3 or 4 cells at a time
     vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
-
     if(fuse4Cells)
       {
       doMarchingCubes<4>( vdims, field, scalarsArray, verticesArray, dim3/4);
@@ -144,32 +138,5 @@ static void RunMarchingCubes(int vdims[3],
     }
 
 }
-}
 
-static void RunVTKMarchingCubes(vtkImageData* image, int MAX_NUM_TRIALS)
-{
-  vtkNew<vtkTrivialProducer> producer;
-  producer->SetOutput(image);
-  producer->Update();
-
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-
-    vtkNew<vtkContourFilter> marching;
-    marching->SetInputConnection(producer->GetOutputPort());
-
-    vtkm::cont::Timer<> timer;
-
-    marching->ComputeGradientsOff();
-    marching->ComputeNormalsOff();
-    marching->ComputeScalarsOn();
-    marching->SetNumberOfContours(1);
-    marching->SetValue(0, ISO_VALUE);
-
-    marching->Update();
-
-    double time = timer.GetElapsedTime();
-    std::cout << "num cells: " << marching->GetOutput()->GetNumberOfCells() << std::endl;
-    std::cout << "VTK,Serial," << time << "," << i << std::endl;
-    }
 }
