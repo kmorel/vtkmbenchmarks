@@ -17,18 +17,18 @@
 
 #include <vector>
 
-namespace slide{
+namespace perf {
 
 //now that the device adapter is included set a global typedef
 //that is the chosen device tag
 typedef VTKM_DEFAULT_DEVICE_ADAPTER_TAG DeviceAdapter;
 
 static void doLayeredMarchingCubes( int vdims[3],
-                             const vtkm::cont::ArrayHandle<vtkm::Float32>& field,
-                             std::vector< vtkm::cont::ArrayHandle<vtkm::Float32> >& scalarsArrays,
-                             std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > >& verticesArrays,
-                             int count,
-                             int numberOfLayers)
+                                   const vtkm::cont::ArrayHandle<vtkm::Float32>& field,
+                                   std::vector< vtkm::cont::ArrayHandle< vtkm::Float32> >& scalarsArray,
+                                   std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > >& verticesArray,
+                                   int count,
+                                   int numberOfLayers)
 {
   // Set up the Marching Cubes tables
   vtkm::cont::ArrayHandle<vtkm::Id> vertexTableArray = vtkm::cont::make_ArrayHandle(numVerticesTable, 256);
@@ -46,50 +46,54 @@ static void doLayeredMarchingCubes( int vdims[3],
     if( remainderCells != 0 && (i+1) == numberOfLayers)
       { size += remainderCells; }
 
-    vtkm::cont::ArrayHandle< vtkm::Id > cellHasOutput;
-    vtkm::cont::ArrayHandle< vtkm::Id > numOutputVertsPerCell;
-
+    vtkm::cont::ArrayHandle< vtkm::Id > numOutputTrisPerCell;
     // Call the ClassifyCell functor to compute the Marching Cubes case
     //numbers for each cell, and the number of vertices to be generated
     vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(startI, size);
-    typedef worklets::ClassifyCell< vtkm::Float32, vtkm::Id, vtkm::Id > CellClassifyFunctor;
+    typedef worklets::ClassifyCellOutputTri< vtkm::Float32, vtkm::Id > CellClassifyFunctor;
     typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
     CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
     ClassifyDispatcher classifyCellDispatcher(cellClassify);
-    classifyCellDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputVertsPerCell);
+    classifyCellDispatcher.Invoke(cellCountImplicitArray, numOutputTrisPerCell);
 
+    vtkm::cont::ArrayHandle< vtkm::Id > validCellIndicesArray;
+    vtkm::cont::ArrayHandle< vtkm::Id > inputCellIterationNumber;
 
-    // Determine which cells are "valid" (i.e., produce geometry), and perform
-    // an inclusive scan to get running total of the number of "valid" cells
-    vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
-    vtkm::cont::ArrayHandle<vtkm::Id> outputVerticesLocArray;
-
-    const vtkm::Id numValidInputCells =
-        vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
-                                                                         cellHasOutput);
-   // go to next layer if no cells generate geometry
-    if (numValidInputCells == 0)
+    //compute the number of valid input cells and those ids
+    const vtkm::Id numOutputCells =
+      vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputTrisPerCell,
+                                                                       numOutputTrisPerCell);
+    //go to next layer if no cells generate geometry
+    if(numOutputCells == 0)
       { continue; }
 
-   int numTotalVertices =
-        vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputVertsPerCell,
-                                                                         outputVerticesLocArray);
-    //compute the original cell ids that will produce output. We do this by
-    //figuring out for each output cell value what input cell generates it
-    vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numValidInputCells);
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellHasOutput,
+    vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numOutputCells);
+    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(numOutputTrisPerCell,
                                                                    validCellCountImplicitArray,
                                                                    validCellIndicesArray);
 
-    cellHasOutput.ReleaseResourcesExecution();
-    numOutputVertsPerCell.ReleaseResourcesExecution();
+    numOutputTrisPerCell.ReleaseResourcesExecution();
+    //compute for each output triangle what iteration of the input cell
+    //generates it
+    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::LowerBounds(validCellIndicesArray,
+                                                                   validCellIndicesArray,
+                                                                   inputCellIterationNumber);
 
-    typedef worklets::IsosurfaceFunctorUniformGrid<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
+    //iteration cell numbers now look like:
+    // 0, 0, 0, 3, 4, 4
+    // and valid input cells look like:
+    // 1, 1, 1, 3, 6, 6
+    //so in the iso surface, we need to talk current output index - iteration number
+    //to get the proper iteration number
 
+    //generate a single tri per cell
     vtkm::cont::ArrayHandle< vtkm::Float32 > scalars;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verts;
 
+    const vtkm::Id numTotalVertices = numOutputCells * 3;
+
+    typedef worklets::IsosurfaceSingleTri<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
     IsoSurfaceFunctor isosurface(ISO_VALUE,
                                  vdims,
                                  field,
@@ -101,13 +105,12 @@ static void doLayeredMarchingCubes( int vdims[3],
                                  );
 
     vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
+    isosurfaceDispatcher.Invoke(validCellIndicesArray, inputCellIterationNumber);
 
-    isosurfaceDispatcher.Invoke(validCellIndicesArray, outputVerticesLocArray);
-
-    verticesArrays.push_back(verts);
-    scalarsArrays.push_back(scalars);
+    scalarsArray.push_back(scalars);
+    verticesArray.push_back(verts);
     }
-};
+}
 
 static void RunMarchingCubes(int vdims[3],
                              std::vector<vtkm::Float32>& buffer,
@@ -152,7 +155,7 @@ static void RunMarchingCubes(int vdims[3],
       if( widthOfEachSlice[s] >= 16)
         {
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
-                                dim3, numberOfSlices[s]);
+                                dim3, 1);
         break;
         }
       }
@@ -174,3 +177,4 @@ static void RunMarchingCubes(int vdims[3],
 }
 
 }
+

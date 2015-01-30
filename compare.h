@@ -8,6 +8,7 @@ static const float ISO_VALUE=0.07;
 #include "compare_sliding_mc.h"
 #include "compare_lowmem_mc.h"
 #include "compare_pertri_out_mc.h"
+#include "compare_perf_mc.h"
 // #include "compare_thresh.h"
 
 #include <vtkDataArray.h>
@@ -89,7 +90,7 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1/3/4 cells at a time
     //and than writes out all geometry for those combined cells at the same time
-    try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    // try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Per Tri Output,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1 cell at a time
@@ -111,11 +112,10 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     //pyramid and inclusive scan approach to reduce the size of the lookup tables.
     // low_mem::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
 
-
-    // std::cout << "VTKM SuperPerf,Accelerator,Time,Trial" << std::endl;
-    // Combines the kernel fusion, per tri output, the sliding window, and the
-    // histo pyramid for a super fast, super low mem version
-    // perf::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
+    std::cout << "VTKM SuperPerf,Accelerator,Time,Trial" << std::endl;
+    // Currently Combines the per tri output and the sliding window.
+    // In future will need to add histo pyramid for a super fast, super low mem version
+    try{  perf::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {
