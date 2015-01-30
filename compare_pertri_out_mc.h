@@ -47,10 +47,9 @@ static void doMarchingCubes( int vdims[3],
   ClassifyDispatcher classifyCellDispatcher(cellClassify);
   classifyCellDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputTriPerCell);
 
-  vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
   for(int i=0; i < 5; ++i)
     {
-    vtkm::cont::ArrayHandle<vtkm::Id> outputVerticesLocArray;
+    vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
 
     const vtkm::Id numValidInputCells =
       vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
@@ -90,7 +89,6 @@ static void doMarchingCubes( int vdims[3],
     verticesArray.push_back(verts);
 
     //decrement the count in numOutputTriPerCell, and cellHasOutput
-
     typedef worklets::DecrementCounts DecCountFunctor;
     typedef vtkm::worklet::DispatcherMapField< DecCountFunctor > DecDispatcher;
 
