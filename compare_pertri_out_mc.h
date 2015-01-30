@@ -10,7 +10,6 @@
 #include <vtkm/worklet/WorkletMapField.h>
 
 #include <vtkContourFilter.h>
-#include <vtkFlyingEdges3D.h>
 #include <vtkImageData.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -34,71 +33,73 @@ static void doMarchingCubes( int vdims[3],
   vtkm::cont::ArrayHandle<vtkm::Id> vertexTableArray = vtkm::cont::make_ArrayHandle(numVerticesTable, 256);
   vtkm::cont::ArrayHandle<vtkm::Id> triangleTableArray = vtkm::cont::make_ArrayHandle(triTable, 256*16);
 
-  vtkm::cont::ArrayHandle< vtkm::Id > cellHasOutput;
-  vtkm::cont::ArrayHandle< vtkm::Id > numOutputTriPerCell;
-
+  vtkm::cont::ArrayHandle< vtkm::Id > numOutputTrisPerCell;
   // Call the ClassifyCell functor to compute the Marching Cubes case
   //numbers for each cell, and the number of vertices to be generated
   vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(0, count);
-  typedef worklets::ClassifyCell< vtkm::Float32 > CellClassifyFunctor;
+  typedef worklets::ClassifyCellOutputTri< vtkm::Float32, vtkm::Id > CellClassifyFunctor;
   typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
   CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
   ClassifyDispatcher classifyCellDispatcher(cellClassify);
-  classifyCellDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputTriPerCell);
+  classifyCellDispatcher.Invoke(cellCountImplicitArray, numOutputTrisPerCell);
 
-  vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
-  for(int i=0; i < 5; ++i)
-    {
-    vtkm::cont::ArrayHandle<vtkm::Id> outputVerticesLocArray;
+  vtkm::cont::ArrayHandle< vtkm::Id > validCellIndicesArray;
+  vtkm::cont::ArrayHandle< vtkm::Id > inputCellIterationNumber;
 
-    const vtkm::Id numValidInputCells =
-      vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
-                                                                       cellHasOutput);
+  //compute the number of valid input cells and those ids
+  const vtkm::Id numOutputCells =
+    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputTrisPerCell,
+                                                                     numOutputTrisPerCell);
 
-    vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numValidInputCells);
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellHasOutput,
-                                                                   validCellCountImplicitArray,
-                                                                   validCellIndicesArray);
+  //terminate if no cells has triangles left
+  if(numOutputCells == 0)
+    { return; }
 
-    //terminate if no cells has triangles left
-    if(numValidInputCells == 0)
-      { break; }
+  vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numOutputCells);
+  vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(numOutputTrisPerCell,
+                                                                 validCellCountImplicitArray,
+                                                                 validCellIndicesArray);
 
-    //allocate
-    //generate a single tri per cell
-    vtkm::cont::ArrayHandle< vtkm::Float32 > scalars;
-    vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verts;
+  //compute for each output triangle what iteration of the input cell
+  //generates it
+  vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::LowerBounds(validCellIndicesArray,
+                                                                 validCellIndicesArray,
+                                                                 inputCellIterationNumber);
 
-    const vtkm::Id numTotalVertices = numValidInputCells * 3;
-    typedef worklets::IsosurfaceSingleTri<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
-    IsoSurfaceFunctor isosurface(i,
-                                 ISO_VALUE,
-                                 vdims,
-                                 field,
-                                 field,
-                                 vertexTableArray,
-                                 triangleTableArray,
-                                 verts.PrepareForOutput(numTotalVertices, DeviceAdapter()),
-                                 scalars.PrepareForOutput(numTotalVertices, DeviceAdapter())
-                                 );
+  //iteration cell numbers now look like:
+  // 0, 0, 0, 3, 4, 4
+  // and valid input cells look like:
+  // 1, 1, 1, 3, 6, 6
+  //so in the iso surface, we need to talk current output index - iteration number
+  //to get the proper iteration number
 
-    vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
-    isosurfaceDispatcher.Invoke(validCellIndicesArray, validCellCountImplicitArray);
+  //generate a single tri per cell
+  vtkm::cont::ArrayHandle< vtkm::Float32 > scalars;
+  vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verts;
 
-    scalarsArray.push_back(scalars);
-    verticesArray.push_back(verts);
+  const vtkm::Id numTotalVertices = numOutputCells * 3;
+  std::cout << "numOutputCells: " << numOutputCells << std::endl;
+  typedef worklets::IsosurfaceSingleTri<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
+  IsoSurfaceFunctor isosurface(ISO_VALUE,
+                               vdims,
+                               field,
+                               field,
+                               vertexTableArray,
+                               triangleTableArray,
+                               verts.PrepareForOutput(numTotalVertices, DeviceAdapter()),
+                               scalars.PrepareForOutput(numTotalVertices, DeviceAdapter())
+                               );
 
-    //decrement the count in numOutputTriPerCell, and cellHasOutput
+  vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
+  isosurfaceDispatcher.Invoke(validCellCountImplicitArray,
+                              validCellIndicesArray,
+                              inputCellIterationNumber);
 
-    typedef worklets::DecrementCounts DecCountFunctor;
-    typedef vtkm::worklet::DispatcherMapField< DecCountFunctor > DecDispatcher;
+  scalarsArray.push_back(scalars);
+  verticesArray.push_back(verts);
+}
 
-    DecDispatcher decCellCountDispatcher;
-    decCellCountDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputTriPerCell);
-    }
-
-};
 
 static void RunMarchingCubes(int vdims[3],
                                  std::vector<vtkm::Float32>& buffer,

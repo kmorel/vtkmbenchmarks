@@ -135,6 +135,7 @@ static void RunMarchingCubes(int vdims[3],
     double time = timer.GetElapsedTime();
     if(!silent)
       {
+      std::cout << "fuse4Cells: " << fuse4Cells << " fuse3Cells: " << fuse3Cells << std::endl;
       std::cout << "num cells: " << (scalarsArray.GetNumberOfValues()/3)  << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
       }
