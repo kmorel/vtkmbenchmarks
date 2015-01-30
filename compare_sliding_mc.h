@@ -122,11 +122,17 @@ static void RunMarchingCubes(int vdims[3],
   int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
   int dim3 = dims[0] * dims[1] * dims[2];
 
+  vtkm::cont::ArrayHandle<vtkm::Float32> field;
   //construct the scheduler that will execute all the worklets
   for(int trial=0; trial < MAX_NUM_TRIALS; ++trial)
     {
     vtkm::cont::Timer<> timer;
 
+    //setup the iso field to contour
+    if(trial < MAX_NUM_TRIALS/2)
+      {
+      field = vtkm::cont::make_ArrayHandle(buffer);
+      }
 
     const int numberOfSlices[9] = {64, 32, 25, 16, 8, 5, 4, 3, 1};
     const int widthOfEachSlice[9] = { (dims[2]/64),
@@ -139,10 +145,6 @@ static void RunMarchingCubes(int vdims[3],
                                       (dims[2]/3 ),
                                       10000000
                                      };
-
-    //setup the iso field to contour
-    vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
-
     //classify each cell, and merge classification of cells based on if
     //we can fuse 3 or 4 cells at a time
     std::vector< vtkm::cont::ArrayHandle<vtkm::Float32> > scalarsArrays;

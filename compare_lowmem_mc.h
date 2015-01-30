@@ -98,6 +98,7 @@ static void RunMarchingCubes(int vdims[3],
   int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
   int dim3 = dims[0] * dims[1] * dims[2];
 
+  vtkm::cont::ArrayHandle<vtkm::Float32> field;
   //construct the scheduler that will execute all the worklets
   for(int trial=0; trial < MAX_NUM_TRIALS; ++trial)
     {
@@ -106,8 +107,11 @@ static void RunMarchingCubes(int vdims[3],
     const bool fuse3Cells = (dim3%3 == 0);
 
     //setup the iso field to contour
-    vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
-
+    vtkm::cont::ArrayHandle<vtkm::Float32> field;
+    if(trial < MAX_NUM_TRIALS/2)
+      {
+      field = vtkm::cont::make_ArrayHandle(buffer);
+      }
     //classify each cell, and merge classification of cells based on if
     //we can fuse 3 or 4 cells at a time
     vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;

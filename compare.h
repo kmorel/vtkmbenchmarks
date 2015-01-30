@@ -19,7 +19,7 @@ static const float ISO_VALUE=0.07;
 #include <iostream>
 #include <vector>
 
-static const int NUM_TRIALS = 5;
+static const int NUM_TRIALS = 8;
 
 
 static vtkSmartPointer<vtkImageData>
