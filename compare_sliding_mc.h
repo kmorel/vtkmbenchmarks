@@ -359,11 +359,23 @@ static void RunMarchingCubes(int vdims[3],
   int dim3 = dims[0] * dims[1] * dims[2];
 
   //construct the scheduler that will execute all the worklets
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
+  for(int trial=0; trial < MAX_NUM_TRIALS; ++trial)
     {
     vtkm::cont::Timer<> timer;
-    const bool fuse4Layers = (dims[2]%4 == 0);
-    const bool fuse3Layers = (dims[2]%3 == 0);
+
+
+    const int numberOfSlices[10] = {100, 64, 32, 25, 16, 8, 5, 4, 3, 1};
+    const bool ifNumberOfSlicesIsPossible[10] = { (dims[2]%100 == 0),
+                                                  (dims[2]%64 == 0),
+                                                  (dims[2]%32 == 0),
+                                                  (dims[2]%25 == 0),
+                                                  (dims[2]%16 == 0),
+                                                  (dims[2]%8 == 0),
+                                                  (dims[2]%5 == 0),
+                                                  (dims[2]%4 == 0),
+                                                  (dims[2]%3 == 0),
+                                                  true
+                                                };
 
     //setup the iso field to contour
     vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
@@ -373,17 +385,16 @@ static void RunMarchingCubes(int vdims[3],
     std::vector< vtkm::cont::ArrayHandle<vtkm::Float32> > scalarsArrays;
     std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > > verticesArrays;
 
-    if(fuse4Layers)
+    //find the best number of slices to subdivide this grid by
+    for(int s=0; s < 10; ++s)
       {
-      doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays, dim3, 4);
-      }
-    else if(fuse3Layers)
-      {
-      doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays, dim3, 3);
-      }
-    else
-      {
-      doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays, dim3, 1);
+      if( ifNumberOfSlicesIsPossible[s] == true)
+        {
+        std::cout << "sliced the grid: " << numberOfSlices[s] << " times " << std::endl;
+        doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
+                                dim3, numberOfSlices[s]);
+        break;
+        }
       }
 
     double time = timer.GetElapsedTime();
@@ -396,7 +407,7 @@ static void RunMarchingCubes(int vdims[3],
     if(!silent)
       {
       std::cout << "num cells: " << numCells << std::endl;
-      std::cout << "vtkm," << device << "," << time << "," << i << std::endl;
+      std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
       }
     }
 
