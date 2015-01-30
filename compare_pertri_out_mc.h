@@ -34,12 +34,12 @@ static void doMarchingCubes( int vdims[3],
   vtkm::cont::ArrayHandle<vtkm::Id> triangleTableArray = vtkm::cont::make_ArrayHandle(triTable, 256*16);
 
   vtkm::cont::ArrayHandle< vtkm::Id > cellHasOutput;
-  vtkm::cont::ArrayHandle< vtkm::Id > numOutputVertsPerCell;
+  vtkm::cont::ArrayHandle< vtkm::UInt8 > numOutputVertsPerCell;
 
   // Call the ClassifyCell functor to compute the Marching Cubes case
   //numbers for each cell, and the number of vertices to be generated
   vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(0, count);
-  typedef worklets::ClassifyCell< vtkm::Float32 > CellClassifyFunctor;
+  typedef worklets::ClassifyCell< vtkm::Float32, vtkm::Id, vtkm::UInt8 > CellClassifyFunctor;
   typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
   CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
