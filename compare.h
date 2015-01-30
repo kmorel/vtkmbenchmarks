@@ -1,5 +1,10 @@
 
+static const float ISO_VALUE=0.07;
+
+#include "isosurface.h"
 #include "compare_mc.h"
+#include "compare_sliding_mc.h"
+#include "compare_lowmem_mc.h"
 // #include "compare_thresh.h"
 
 #include <vtkDataArray.h>
@@ -12,7 +17,8 @@
 #include <iostream>
 #include <vector>
 
-static const int NUM_TRIALS = 2;
+static const int NUM_TRIALS = 5;
+
 
 static vtkSmartPointer<vtkImageData>
 ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleSize=1.0)
@@ -54,7 +60,7 @@ int RunComparison(std::string device, std::string file, int pipeline)
 {
 
   std::vector<vtkm::Float32> buffer;
-  double resample_ratio = 1.0; //full data
+  double resample_ratio = 0.4; //full data
   vtkSmartPointer< vtkImageData > image = ReadData(buffer, file, resample_ratio);
 
   //get dims of image data
@@ -79,8 +85,14 @@ int RunComparison(std::string device, std::string file, int pipeline)
   {
     std::cout << "Benchmarking Marching Cubes" << std::endl;
 
-    std::cout << "VTKM,Accelerator,Time,Trial" << std::endl;
-    RunvtkmMarchingCubes(dims,buffer,device,NUM_TRIALS);
+    std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
+    try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+
+    // std::cout << "VTKM Low Mem Inclusive Scan,Accelerator,Time,Trial" << std::endl;
+    // low_mem::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
+
+    std::cout << "VTKM Sliding Window,Accelerator,Time,Trial" << std::endl;
+    try{ slide::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {

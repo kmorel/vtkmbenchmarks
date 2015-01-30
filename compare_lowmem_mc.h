@@ -17,7 +17,7 @@
 
 #include <vector>
 
-namespace mc {
+namespace low_mem{
 
 //now that the device adapter is included set a global typedef
 //that is the chosen device tag
@@ -84,10 +84,16 @@ public:
   VTKM_EXEC_EXPORT
   vtkm::Id operator()(vtkm::Id firstCellId, vtkm::Id& hasOutput) const
   {
+    vtkm::Id numCells = (cellsPerLayer * (zdim-1));
+    vtkm::Id offset = numCells / NumCellsToFuse;
+
     vtkm::Id vertCount=0;
+
+    //we need to determine if the first and last cells lay continous
+    //in the grid
     for(int i=0; i < NumCellsToFuse; i++)
       {
-      const vtkm::Id cellId = (firstCellId * NumCellsToFuse) + i;
+      const vtkm::Id cellId = (firstCellId + (offset*i));
 
       // Compute 3D indices of this cell
       const int x = cellId % (xdim - 1);
@@ -196,11 +202,13 @@ public:
                                     4, 5, 5, 6, 7, 6, 4, 7,
                                     0, 4, 1, 5, 2, 6, 3, 7 };
 
+    vtkm::Id numCells = (cellsPerLayer * (zdim-1));
+    vtkm::Id offset = numCells / NumCellsToFuse;
+
     vtkm::Id outputVertId = firstOutputVertId;
     for(int i=0; i < NumCellsToFuse; i++)
       {
-      const vtkm::Id inputCellId = (firstInputCellId * NumCellsToFuse) + i;
-
+      const vtkm::Id inputCellId = (firstInputCellId + (offset*i));
 
       const int x = inputCellId % (xdim - 1);
       const int y = (inputCellId / (xdim - 1)) % (ydim -1);
@@ -278,6 +286,7 @@ public:
       }
   }
 };
+
 
 template< int NumCellsToFuse>
 static void doMarchingCubes( int vdims[3],
@@ -358,12 +367,9 @@ static void RunMarchingCubes(int vdims[3],
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
     {
     vtkm::cont::Timer<> timer;
+    const bool fuse4Cells = (dim3%4 == 0);
+    const bool fuse3Cells = (dim3%3 == 0);
 
-    //currently the fusing is disabled as it isn't the current bottleneck
-    //instead we need to schedule writing to happen per output triangle
-
-    const bool fuse4Cells = false; //(dim3%4 == 0);
-    const bool fuse3Cells = false; //(dim3%3 == 0);
     //setup the iso field to contour
     vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
 
@@ -371,7 +377,6 @@ static void RunMarchingCubes(int vdims[3],
     //we can fuse 3 or 4 cells at a time
     vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
-
     if(fuse4Cells)
       {
       doMarchingCubes<4>( vdims, field, scalarsArray, verticesArray, dim3/4);
@@ -394,32 +399,5 @@ static void RunMarchingCubes(int vdims[3],
     }
 
 }
-}
 
-static void RunVTKMarchingCubes(vtkImageData* image, int MAX_NUM_TRIALS)
-{
-  vtkNew<vtkTrivialProducer> producer;
-  producer->SetOutput(image);
-  producer->Update();
-
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-
-    vtkNew<vtkContourFilter> marching;
-    marching->SetInputConnection(producer->GetOutputPort());
-
-    vtkm::cont::Timer<> timer;
-
-    marching->ComputeGradientsOff();
-    marching->ComputeNormalsOff();
-    marching->ComputeScalarsOn();
-    marching->SetNumberOfContours(1);
-    marching->SetValue(0, ISO_VALUE);
-
-    marching->Update();
-
-    double time = timer.GetElapsedTime();
-    std::cout << "num cells: " << marching->GetOutput()->GetNumberOfCells() << std::endl;
-    std::cout << "VTK,Serial," << time << "," << i << std::endl;
-    }
 }
