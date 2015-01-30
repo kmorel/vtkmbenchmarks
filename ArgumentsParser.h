@@ -40,11 +40,13 @@ public:
   std::string file() const
     { return this->File; }
 
+  double ratio() const
+    { return this->Ratio; }
+
 private:
   std::string File;
   PipelineMode Pipeline;
-
-
+  double Ratio;
 };
 
 }}

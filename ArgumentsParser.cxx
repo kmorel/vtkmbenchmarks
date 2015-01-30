@@ -21,7 +21,7 @@
 #include <sstream>
 #include <string>
 
-enum  optionIndex { UNKNOWN, HELP, FILEPATH, PIPELINE};
+enum  optionIndex { UNKNOWN, HELP, FILEPATH, PIPELINE, RESAMPLE_RATIO};
 const vtkm::testing::option::Descriptor usage[] =
 {
   {UNKNOWN,   0,"" , ""    ,      vtkm::testing::option::Arg::None, "USAGE: example [options]\n\n"
@@ -29,6 +29,7 @@ const vtkm::testing::option::Descriptor usage[] =
   {HELP,      0,"h" , "help",    vtkm::testing::option::Arg::None, "  --help, -h  \tPrint usage and exit." },
   {FILEPATH,      0,"", "file",      vtkm::testing::option::Arg::Optional, "  --file  \t nrrd file to read." },
   {PIPELINE,  0,"", "pipeline",  vtkm::testing::option::Arg::Optional, "  --pipeline  \t What pipeline to run ( 1 threshold, 2 marching cubes)." },
+  {RESAMPLE_RATIO,  0,"", "ratio",  vtkm::testing::option::Arg::Optional, "  --ratio  \t Resample ratio for the input data." },
   {UNKNOWN,   0,"",  "",         vtkm::testing::option::Arg::None, "\nExample:\n"
                                                                    " example --file=./test --pipeline=1\n"},
   {0,0,0,0,0,0}
@@ -38,7 +39,8 @@ const vtkm::testing::option::Descriptor usage[] =
 //-----------------------------------------------------------------------------
 vtkm::testing::ArgumentsParser::ArgumentsParser():
   File(""),
-  Pipeline(THRESHOLD)
+  Pipeline(MARCHING_CUBES),
+  Ratio(1.0)
 {
 }
 
@@ -102,6 +104,13 @@ bool vtkm::testing::ArgumentsParser::parseArguments(int argc, char* argv[])
       std::cerr << "Threshold is : " << THRESHOLD  << std::endl;
       std::cerr << "Marching Cubes is : " << MARCHING_CUBES  << std::endl;
       }
+    }
+
+  if ( options[RESAMPLE_RATIO] )
+    {
+    std::string sarg(options[RESAMPLE_RATIO].last()->arg);
+    std::stringstream argstream(sarg);
+    argstream >> this->Ratio;
     }
 
   delete[] options;

@@ -56,11 +56,9 @@ ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleS
 }
 
 
-int RunComparison(std::string device, std::string file, int pipeline)
+int RunComparison(std::string device, std::string file, int pipeline, double resample_ratio)
 {
-
   std::vector<vtkm::Float32> buffer;
-  double resample_ratio = 0.4; //full data
   vtkSmartPointer< vtkImageData > image = ReadData(buffer, file, resample_ratio);
 
   //get dims of image data

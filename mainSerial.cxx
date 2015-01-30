@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
 
   const std::string file = parser.file();
   const int pipeline = parser.pipeline();
-  RunComparison("Serial", file, pipeline);
+  const double ratio = parser.ratio();
+  RunComparison("Serial", file, pipeline, ratio);
   return 0;
 }
