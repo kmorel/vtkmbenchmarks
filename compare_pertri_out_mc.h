@@ -10,7 +10,6 @@
 #include <vtkm/worklet/WorkletMapField.h>
 
 #include <vtkContourFilter.h>
-#include <vtkFlyingEdges3D.h>
 #include <vtkImageData.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -35,7 +34,7 @@ static void doMarchingCubes( int vdims[3],
   vtkm::cont::ArrayHandle<vtkm::Id> triangleTableArray = vtkm::cont::make_ArrayHandle(triTable, 256*16);
 
   vtkm::cont::ArrayHandle< vtkm::Id > cellHasOutput;
-  vtkm::cont::ArrayHandle< vtkm::Id > numOutputTriPerCell;
+  vtkm::cont::ArrayHandle< vtkm::Id > numOutputVertsPerCell;
 
   // Call the ClassifyCell functor to compute the Marching Cubes case
   //numbers for each cell, and the number of vertices to be generated
@@ -45,18 +44,19 @@ static void doMarchingCubes( int vdims[3],
 
   CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
   ClassifyDispatcher classifyCellDispatcher(cellClassify);
-  classifyCellDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputTriPerCell);
+  classifyCellDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputVertsPerCell);
 
   for(int i=0; i < 5; ++i)
     {
-    vtkm::cont::ArrayHandle<vtkm::Id> validCellIndicesArray;
+    vtkm::cont::ArrayHandle< vtkm::Id > cellOutputIncSum;
+    vtkm::cont::ArrayHandle< vtkm::Id > validCellIndicesArray;
 
     const vtkm::Id numValidInputCells =
       vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
-                                                                       cellHasOutput);
+                                                                       cellOutputIncSum);
 
     vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numValidInputCells);
-    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellHasOutput,
+    vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellOutputIncSum,
                                                                    validCellCountImplicitArray,
                                                                    validCellIndicesArray);
 
@@ -88,12 +88,13 @@ static void doMarchingCubes( int vdims[3],
     scalarsArray.push_back(scalars);
     verticesArray.push_back(verts);
 
-    //decrement the count in numOutputTriPerCell, and cellHasOutput
+    //decrement the count in numOutputVertsPerCell, and cellHasOutput
     typedef worklets::DecrementCounts DecCountFunctor;
     typedef vtkm::worklet::DispatcherMapField< DecCountFunctor > DecDispatcher;
 
-    DecDispatcher decCellCountDispatcher;
-    decCellCountDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputTriPerCell);
+    DecCountFunctor decFunc(numValidInputCells, cellHasOutput, numOutputVertsPerCell);
+    DecDispatcher decCellCountDispatcher( decFunc );
+    decCellCountDispatcher.Invoke(validCellIndicesArray);
     }
 
 };

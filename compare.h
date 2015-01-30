@@ -119,6 +119,7 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
 
     if(device == "Serial")
       {
+      std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
       RunVTKMarchingCubes(image,NUM_TRIALS);
       }
   }

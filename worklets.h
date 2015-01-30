@@ -290,7 +290,7 @@ public:
   VTKM_EXEC_EXPORT
   vtkm::Id operator()(vtkm::Id firstCellId, vtkm::Id& hasOutput) const
   {
-    vtkm::Id triCount=0;
+    vtkm::Id vertCount=0;
     for(int i=0; i < NumCellsToFuse; i++)
       {
       const vtkm::Id cellId = (firstCellId * NumCellsToFuse) + i;
@@ -331,12 +331,12 @@ public:
       cubeindex += (f7 > isovalue)*128;
 
       //saving number of triangles not number of verts
-      triCount += (this->vertTable.Get(cubeindex) / 3);
+      vertCount += this->vertTable.Get(cubeindex);
       }
 
     // Return the number of triangles this case generates
-    hasOutput = (triCount == 0) ? 0 : 1;
-    return triCount;
+    hasOutput = (vertCount == 0) ? 0 : 1;
+    return vertCount;
   }
 };
 
@@ -486,21 +486,33 @@ public:
 class DecrementCounts : public vtkm::worklet::WorkletMapField
 {
 public:
-  typedef void ControlSignature(FieldIn<IdType> inputCellId, FieldOut<AllTypes> hasOutput, FieldOut<AllTypes> numCellsOut);
-  typedef void ExecutionSignature(_1, _2, _3);
+  typedef void ControlSignature(FieldIn<IdType> currentCellId);
+  typedef void ExecutionSignature(_1);
   typedef _1 InputDomain;
 
+  typedef PortalTypes< vtkm::Id >::Portal IdPortalType;
+  IdPortalType CellHasOutput, VertexCount;
+
+  template<typename T>
+  VTKM_CONT_EXPORT
+  DecrementCounts(vtkm::Id , //notused
+                  T& hasOutputHandle,
+                  T& vertCountHandle):
+    CellHasOutput( hasOutputHandle.PrepareForInPlace( DeviceAdapter() ) ),
+    VertexCount( vertCountHandle.PrepareForInPlace( DeviceAdapter() ) )
+    {
+
+    }
+
   VTKM_EXEC_EXPORT
-  void operator()(vtkm::Id index, vtkm::Id& hasOutput, vtkm::Id& cellCount) const
+  void operator()(vtkm::Id currentCell) const
   {
-    if( hasOutput == 1)
-      {
-      --cellCount;
-      if(cellCount == 0)
-        {
-        hasOutput = 0;
-        }
-      }
+    vtkm::Id vertCount = this->VertexCount.Get(currentCell);
+    vertCount -= 3;
+    const vtkm::Id hasOutput = (vertCount == 0) ? 0 : 1;
+
+    this->CellHasOutput.Set(currentCell, hasOutput);
+    this->VertexCount.Set(currentCell, vertCount);
   }
 };
 
