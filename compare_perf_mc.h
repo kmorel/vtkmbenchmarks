@@ -60,6 +60,9 @@ static void doLayeredMarchingCubes( int vdims[3],
     vtkm::cont::ArrayHandle< vtkm::Id > validCellIndicesArray;
     vtkm::cont::ArrayHandle< vtkm::Id > inputCellIterationNumber;
 
+    // numOutputTrisPerCell to start:
+    // 0, 3, 0, 1, 0, 0, 2
+
     //compute the number of valid input cells and those ids
     const vtkm::Id numOutputCells =
       vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputTrisPerCell,
@@ -68,10 +71,16 @@ static void doLayeredMarchingCubes( int vdims[3],
     if(numOutputCells == 0)
       { continue; }
 
+
+    // numOutputTrisPerCell after scan inclusive:
+    // 0, 3, 3, 4, 4, 4, 6
+
     vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numOutputCells);
     vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(numOutputTrisPerCell,
                                                                    validCellCountImplicitArray,
                                                                    validCellIndicesArray);
+    //Valid Cell Indices Array
+    // 1, 1, 1, 3, 6, 6
 
     numOutputTrisPerCell.ReleaseResourcesExecution();
     //compute for each output triangle what iteration of the input cell
@@ -82,10 +91,11 @@ static void doLayeredMarchingCubes( int vdims[3],
 
     //iteration cell numbers now look like:
     // 0, 0, 0, 3, 4, 4
-    // and valid input cells look like:
-    // 1, 1, 1, 3, 6, 6
+
     //so in the iso surface, we need to talk current output index - iteration number
     //to get the proper iteration number
+    //to get the real input cell id we need to add StartI to each element
+    //in valid cell Indices array
 
     //generate a single tri per cell
     vtkm::cont::ArrayHandle< vtkm::Float32 > scalars;
@@ -101,7 +111,8 @@ static void doLayeredMarchingCubes( int vdims[3],
                                  vertexTableArray,
                                  triangleTableArray,
                                  verts.PrepareForOutput(numTotalVertices, DeviceAdapter()),
-                                 scalars.PrepareForOutput(numTotalVertices, DeviceAdapter())
+                                 scalars.PrepareForOutput(numTotalVertices, DeviceAdapter()),
+                                 startI
                                  );
 
     vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
@@ -133,12 +144,10 @@ static void RunMarchingCubes(int vdims[3],
       field = vtkm::cont::make_ArrayHandle(buffer);
       }
 
-    const int numberOfSlices[9] = {64, 32, 25, 16, 8, 5, 4, 3, 1};
-    const int widthOfEachSlice[9] = { (dims[2]/64),
-                                      (dims[2]/32),
-                                      (dims[2]/25),
-                                      (dims[2]/16),
-                                      (dims[2]/8 ),
+    //because we are generating on a per output tri basis we need to have fatter
+    //slices so that we can maximize the accelerator.
+    const int numberOfSlices[5] = {8, 6, 4, 3, 1};
+    const int widthOfEachSlice[5] = { (dims[2]/8 ),
                                       (dims[2]/5 ),
                                       (dims[2]/4 ),
                                       (dims[2]/3 ),
@@ -150,12 +159,12 @@ static void RunMarchingCubes(int vdims[3],
     std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > > verticesArrays;
 
     // find the best number of slices to subdivide this grid by
-    for(int s=0; s < 9; ++s)
+    for(int s=0; s < 5; ++s)
       {
-      if( widthOfEachSlice[s] >= 16)
+      if( widthOfEachSlice[s] >= 32)
         {
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
-                                dim3, 1);
+                                dim3, 2);//numberOfSlices[s]);
         break;
         }
       }

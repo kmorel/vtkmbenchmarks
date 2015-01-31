@@ -140,6 +140,9 @@ public:
   const int xdim, ydim, zdim, cellsPerLayer, pointsPerLayer;
   const float isovalue, xmin, ymin, zmin, xmax, ymax, zmax;
 
+  const int inputCellIdOffset;
+
+
   template<typename U, typename V, typename W, typename X>
   VTKM_CONT_EXPORT
   IsosurfaceFunctorUniformGrid(const float isovalue,
@@ -149,7 +152,8 @@ public:
                                const V & vertexTable,
                                const V & triangleTable,
                                const W & vertices,
-                               const X & scalars):
+                               const X & scalars,
+                               const int inputIdOffset=0):
   isovalue(isovalue),
   xdim(dims[0]), ydim(dims[1]), zdim(dims[2]),
   xmin(-1), ymin(-1), zmin(-1),
@@ -161,14 +165,21 @@ public:
   vertices(vertices),
   scalars(scalars),
   cellsPerLayer((xdim-1) * (ydim-1)),
-  pointsPerLayer (xdim*ydim)
+  pointsPerLayer (xdim*ydim),
+  inputCellIdOffset(inputIdOffset)
+
   {
 
   }
 
   VTKM_EXEC_EXPORT
-  void operator()(vtkm::Id inputCellId, vtkm::Id outputVertId) const
+  void operator()(vtkm::Id inputIndexId, vtkm::Id outputVertId) const
   {
+    // when operating on a slice of the data the inputIndexId
+    // is relative to the start of the slice, so we need to
+    // compute the proper global cell id.
+    const int inputCellId = inputCellIdOffset + inputIndexId;
+
     // Get data for this cell
     const int verticesForEdge[] = { 0, 1, 1, 2, 3, 2, 0, 3,
                                     4, 5, 5, 6, 7, 6, 4, 7,
@@ -365,6 +376,8 @@ public:
   const int xdim, ydim, zdim, cellsPerLayer, pointsPerLayer;
   const float isovalue, xmin, ymin, zmin, xmax, ymax, zmax;
 
+  const int inputCellIdOffset;
+
   template<typename U, typename V, typename W, typename X>
   VTKM_CONT_EXPORT
   IsosurfaceFusedUniformGridFunctor(const float isovalue,
@@ -374,7 +387,8 @@ public:
                                const V & vertexTable,
                                const V & triangleTable,
                                const W & vertices,
-                               const X & scalars):
+                               const X & scalars,
+                               const int inputIdOffset=0):
   isovalue(isovalue),
   xdim(dims[0]), ydim(dims[1]), zdim(dims[2]),
   xmin(-1), ymin(-1), zmin(-1),
@@ -386,14 +400,20 @@ public:
   vertices(vertices),
   scalars(scalars),
   cellsPerLayer((xdim-1) * (ydim-1)),
-  pointsPerLayer (xdim*ydim)
+  pointsPerLayer (xdim*ydim),
+  inputCellIdOffset(inputIdOffset)
   {
 
   }
 
   VTKM_EXEC_EXPORT
-  void operator()(vtkm::Id firstInputCellId, vtkm::Id firstOutputVertId) const
+  void operator()(vtkm::Id inputIndexId, vtkm::Id firstOutputVertId) const
   {
+    // when operating on a slice of the data the inputIndexId
+    // is relative to the start of the slice, so we need to
+    // compute the proper global cell id.
+    const int firstInputCellId = inputCellIdOffset + inputIndexId;
+
     // Get data for this cell
     const int verticesForEdge[] = { 0, 1, 1, 2, 3, 2, 0, 3,
                                     4, 5, 5, 6, 7, 6, 4, 7,
@@ -590,6 +610,8 @@ public:
   const int xdim, ydim, zdim, cellsPerLayer, pointsPerLayer;
   const float isovalue, xmin, ymin, zmin, xmax, ymax, zmax;
 
+  const int inputCellIdOffset;
+
   template<typename U, typename V, typename W, typename X>
   VTKM_CONT_EXPORT
   IsosurfaceSingleTri( const float isovalue,
@@ -599,7 +621,8 @@ public:
                        const V & vertexTable,
                        const V & triangleTable,
                        const W & vertices,
-                       const X & scalars):
+                       const X & scalars,
+                       const int inputIdOffset=0):
   isovalue(isovalue),
   xdim(dims[0]), ydim(dims[1]), zdim(dims[2]),
   xmin(-1), ymin(-1), zmin(-1),
@@ -611,18 +634,24 @@ public:
   vertices(vertices),
   scalars(scalars),
   cellsPerLayer((xdim-1) * (ydim-1)),
-  pointsPerLayer (xdim*ydim)
+  pointsPerLayer (xdim*ydim),
+  inputCellIdOffset(inputIdOffset)
   {
 
   }
 
   VTKM_EXEC_EXPORT
-  void operator()(vtkm::Id outputCellId, vtkm::Id inputCellId, vtkm::Id inputLowerBounds) const
+  void operator()(vtkm::Id outputCellId, vtkm::Id inputIndexId, vtkm::Id inputLowerBounds) const
   {
     // Get data for this cell
     const int verticesForEdge[] = { 0, 1, 1, 2, 3, 2, 0, 3,
                                     4, 5, 5, 6, 7, 6, 4, 7,
                                     0, 4, 1, 5, 2, 6, 3, 7 };
+
+    // when operating on a slice of the data the inputIndexId
+    // is relative to the start of the slice, so we need to
+    // compute the proper global cell id.
+    const int inputCellId = inputCellIdOffset + inputIndexId;
 
     const int x = inputCellId % (xdim - 1);
     const int y = (inputCellId / (xdim - 1)) % (ydim -1);

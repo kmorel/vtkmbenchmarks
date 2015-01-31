@@ -97,7 +97,8 @@ static void doLayeredMarchingCubes( int vdims[3],
                                  vertexTableArray,
                                  triangleTableArray,
                                  verts.PrepareForOutput(numTotalVertices, DeviceAdapter()),
-                                 scalars.PrepareForOutput(numTotalVertices, DeviceAdapter())
+                                 scalars.PrepareForOutput(numTotalVertices, DeviceAdapter()),
+                                 startI
                                  );
 
     vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);

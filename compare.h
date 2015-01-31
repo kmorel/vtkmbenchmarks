@@ -90,7 +90,7 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1/3/4 cells at a time
     //and than writes out all geometry for those combined cells at the same time
-    // try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Per Tri Output,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1 cell at a time
