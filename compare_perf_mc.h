@@ -164,7 +164,7 @@ static void RunMarchingCubes(int vdims[3],
       if( widthOfEachSlice[s] >= 32)
         {
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
-                                dim3, 2);//numberOfSlices[s]);
+                                dim3, numberOfSlices[s]);
         break;
         }
       }
