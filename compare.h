@@ -8,6 +8,7 @@ static const float ISO_VALUE=0.07;
 #include "compare_sliding_mc.h"
 #include "compare_lowmem_mc.h"
 #include "compare_pertri_out_mc.h"
+#include "compare_perf_mc.h"
 // #include "compare_thresh.h"
 
 #include <vtkDataArray.h>
@@ -111,11 +112,10 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     //pyramid and inclusive scan approach to reduce the size of the lookup tables.
     // low_mem::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
 
-
-    // std::cout << "VTKM SuperPerf,Accelerator,Time,Trial" << std::endl;
-    // Combines the kernel fusion, per tri output, the sliding window, and the
-    // histo pyramid for a super fast, super low mem version
-    // perf::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
+    std::cout << "VTKM SuperPerf,Accelerator,Time,Trial" << std::endl;
+    // Currently Combines the per tri output and the sliding window.
+    // In future will need to add histo pyramid for a super fast, super low mem version
+    try{  perf::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {

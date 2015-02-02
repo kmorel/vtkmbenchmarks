@@ -61,6 +61,8 @@ static void doMarchingCubes( int vdims[3],
                                                                  validCellCountImplicitArray,
                                                                  validCellIndicesArray);
 
+  numOutputTrisPerCell.ReleaseResourcesExecution();
+
   //compute for each output triangle what iteration of the input cell
   //generates it
   vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::LowerBounds(validCellIndicesArray,
@@ -79,7 +81,6 @@ static void doMarchingCubes( int vdims[3],
   vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verts;
 
   const vtkm::Id numTotalVertices = numOutputCells * 3;
-  std::cout << "numOutputCells: " << numOutputCells << std::endl;
   typedef worklets::IsosurfaceSingleTri<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
   IsoSurfaceFunctor isosurface(ISO_VALUE,
                                vdims,
@@ -92,9 +93,7 @@ static void doMarchingCubes( int vdims[3],
                                );
 
   vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
-  isosurfaceDispatcher.Invoke(validCellCountImplicitArray,
-                              validCellIndicesArray,
-                              inputCellIterationNumber);
+  isosurfaceDispatcher.Invoke(validCellIndicesArray, inputCellIterationNumber);
 
   scalarsArray.push_back(scalars);
   verticesArray.push_back(verts);
