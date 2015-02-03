@@ -144,30 +144,3 @@ static void RunMarchingCubes(int vdims[3],
 }
 }
 
-static void RunVTKMarchingCubes(vtkImageData* image, int MAX_NUM_TRIALS)
-{
-  vtkNew<vtkTrivialProducer> producer;
-  producer->SetOutput(image);
-  producer->Update();
-
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-
-    vtkNew<vtkContourFilter> marching;
-    marching->SetInputConnection(producer->GetOutputPort());
-
-    vtkm::cont::Timer<> timer;
-
-    marching->ComputeGradientsOff();
-    marching->ComputeNormalsOff();
-    marching->ComputeScalarsOn();
-    marching->SetNumberOfContours(1);
-    marching->SetValue(0, ISO_VALUE);
-
-    marching->Update();
-
-    double time = timer.GetElapsedTime();
-    std::cout << "num cells: " << marching->GetOutput()->GetNumberOfCells() << std::endl;
-    std::cout << "VTK,Serial," << time << "," << i << std::endl;
-    }
-}

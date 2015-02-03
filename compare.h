@@ -4,11 +4,15 @@ static const float ISO_VALUE=0.07;
 #include "isosurface.h"
 #include "worklets.h"
 
-#include "compare_mc.h"
-#include "compare_sliding_mc.h"
+//marching cubes algorithms
+#include "compare_classic_mc.h"
 #include "compare_lowmem_mc.h"
-#include "compare_pertri_out_mc.h"
+#include "compare_per_tri_out_mc.h"
 #include "compare_perf_mc.h"
+#include "compare_sliding_mc.h"
+#include "compare_vtk_mc.h"
+
+//threshold algorithms
 // #include "compare_thresh.h"
 
 #include <vtkDataArray.h>
@@ -120,7 +124,12 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     if(device == "Serial")
       {
       std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
-      RunVTKMarchingCubes(image,NUM_TRIALS);
+      vtk::RunContourFilter(image,NUM_TRIALS);
+
+#ifdef VTK_HAS_FLYING_EDGES
+      std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
+      vtk::RunFlyingEdges(image,NUM_TRIALS);
+#endif
       }
   }
 

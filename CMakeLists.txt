@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.11)
 
 project(VTKMBenchmark CXX)
 
@@ -23,28 +23,28 @@ find_package(VTK 6.2
   REQUIRED)
 
 include(${VTK_USE_FILE})
+option(VTK_HAS_FLYING_EDGES "Enable if you are building a vtk version that has flying edges 3d" OFF)
 
-set_source_files_properties(compare.h
-  PROPERTIES HEADER_FILE_ONLY TRUE
+set(headers
+  compare.h
+  compare_classic_mc.h
+  compare_lowmem_mc.h
+  compare_perf_mc.h
+  compare_per_tri_out_mc.h
+  compare_sliding_mc.h
+  compare_vtk_mc.h
+  worklets.h
   )
 
 set(srcs
-  compare.h
-  compare_mc.h
-  # compare_thresh.h
   ArgumentsParser.cxx
   )
 
-#-----------------------------------------------------------------------------
-# setup timing libs we need to link too
-set(VTKM_TIMING_LIBS)
-if(UNIX AND NOT APPLE)
-  set(VTKM_TIMING_LIBS rt)
-endif()
-
+set_source_files_properties(${headers} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 add_executable(BenchmarkSerial
   ${srcs}
+  ${headers}
   mainSerial.cxx
   )
 
@@ -63,6 +63,7 @@ target_link_libraries(BenchmarkSerial
 #Add CUDA version
 cuda_add_executable(BenchmarkCuda
   ${srcs}
+  ${headers}
   mainCuda.cu
   )
 
@@ -77,3 +78,8 @@ target_link_libraries(BenchmarkCuda
   vtkIOImage
   vtkIOLegacy
   )
+
+if(VTK_HAS_FLYING_EDGES)
+  target_compile_definitions(BenchmarkSerial PRIVATE "VTK_HAS_FLYING_EDGES")
+  target_compile_definitions(BenchmarkCuda   PRIVATE "VTK_HAS_FLYING_EDGES")
+endif()
