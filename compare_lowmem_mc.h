@@ -40,7 +40,7 @@ static void doMarchingCubes( int vdims[3],
   // Call the ClassifyCell functor to compute the Marching Cubes case
   //numbers for each cell, and the number of vertices to be generated
   vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(0, count);
-  typedef worklets::FusedClassifyCell< vtkm::Float32, NumCellsToFuse > CellClassifyFunctor;
+  typedef worklets::FusedClassifyCell< vtkm::Float32, vtkm::Id, vtkm::Id, NumCellsToFuse > CellClassifyFunctor;
   typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
   CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
