@@ -31,7 +31,8 @@ public:
   enum PipelineMode
     {
     THRESHOLD = 1,
-    MARCHING_CUBES = 2
+    MARCHING_CUBES = 2,
+    FLYING_EDGES = 3
     };
 
   PipelineMode pipeline() const
