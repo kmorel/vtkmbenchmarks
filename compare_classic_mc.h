@@ -98,6 +98,41 @@ static void RunMarchingCubes(int vdims[3],
   int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
   int dim3 = dims[0] * dims[1] * dims[2];
 
+  vtkm::cont::ArrayHandle<vtkm::Float32> field;
+  //construct the scheduler that will execute all the worklets
+  for(int trial=0; trial < MAX_NUM_TRIALS; ++trial)
+    {
+    vtkm::cont::Timer<> timer;
+
+    //setup the iso field to contour
+    if(trial < MAX_NUM_TRIALS/2)
+      {
+      field = vtkm::cont::make_ArrayHandle(buffer);
+      }
+
+    vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray;
+    vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
+    doMarchingCubes<1>( vdims, field, scalarsArray, verticesArray, dim3);
+
+    double time = timer.GetElapsedTime();
+    if(!silent)
+      {
+      std::cout << "num cells: " << (scalarsArray.GetNumberOfValues()/3)  << std::endl;
+      std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
+      }
+    }
+
+}
+
+static void RunFusedMarchingCubes(int vdims[3],
+                                 std::vector<vtkm::Float32>& buffer,
+                                 std::string device,
+                                 int MAX_NUM_TRIALS,
+                                 bool silent=false)
+{
+  int dims[3] = { vdims[0]-1, vdims[1]-1, vdims[2]-1 };
+  int dim3 = dims[0] * dims[1] * dims[2];
+
 
   vtkm::cont::ArrayHandle<vtkm::Float32> field;
   //construct the scheduler that will execute all the worklets
@@ -111,8 +146,9 @@ static void RunMarchingCubes(int vdims[3],
       field = vtkm::cont::make_ArrayHandle(buffer);
       }
 
-    const bool fuse4Cells = (dim3%4 == 0);
-    const bool fuse3Cells = (dim3%3 == 0);
+    const bool fuse4Cells = (dims[0]%4 == 0);
+    const bool fuse3Cells = (dims[0]%3 == 0);
+    const bool fuse2Cells = (dims[0]%2 == 0);
 
     //classify each cell, and merge classification of cells based on if
     //we can fuse 3 or 4 cells at a time
@@ -127,6 +163,10 @@ static void RunMarchingCubes(int vdims[3],
       {
       doMarchingCubes<3>( vdims, field, scalarsArray, verticesArray, dim3/3);
       }
+    else if(fuse2Cells)
+      {
+      doMarchingCubes<2>( vdims, field, scalarsArray, verticesArray, dim3/2);
+      }
     else
       {
       doMarchingCubes<1>( vdims, field, scalarsArray, verticesArray, dim3);
@@ -135,7 +175,7 @@ static void RunMarchingCubes(int vdims[3],
     double time = timer.GetElapsedTime();
     if(!silent)
       {
-      std::cout << "fuse4Cells: " << fuse4Cells << " fuse3Cells: " << fuse3Cells << std::endl;
+      std::cout << "fuse4Cells: " << fuse4Cells << " fuse3Cells: " << fuse3Cells << " fuse2Cells: " << fuse2Cells << std::endl;
       std::cout << "num cells: " << (scalarsArray.GetNumberOfValues()/3)  << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
       }
