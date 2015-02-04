@@ -150,7 +150,7 @@ static void RunMarchingCubes(int vdims[3],
     // find the best number of slices to subdivide this grid by
     for(int s=0; s < 9; ++s)
       {
-      if( widthOfEachSlice[s] >= 16)
+      if( widthOfEachSlice[s] >= 32)
         {
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
                                 dim3, numberOfSlices[s]);
