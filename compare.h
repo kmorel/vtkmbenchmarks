@@ -7,10 +7,9 @@ static const float ISO_VALUE=0.07;
 
 //marching cubes algorithms
 #include "compare_classic_mc.h"
-#include "compare_lowmem_mc.h"
 #include "compare_per_tri_out_mc.h"
-#include "compare_perf_mc.h"
 #include "compare_sliding_mc.h"
+#include "compare_sliding_per_tri_out_mc.h"
 #include "compare_vtk_mc.h"
 
 //threshold algorithms
@@ -116,16 +115,10 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     //number of cells we are walking is smaller
     try{ slide::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
-    // std::cout << "VTKM Low Mem Inclusive Scan,Accelerator,Time,Trial" << std::endl;
-    //Run the basic marching cubes which classifies 1/3/4 cells at a time
-    //but use vtkm::uint8 to store the counts, and than use a modified histo
-    //pyramid and inclusive scan approach to reduce the size of the lookup tables.
-    // low_mem::RunMarchingCubes(dims,buffer,device,NUM_TRIALS);
-
-    std::cout << "VTKM SuperPerf,Accelerator,Time,Trial" << std::endl;
+    std::cout << "VTKM Sliding Per Tri Output,Accelerator,Time,Trial" << std::endl;
     // Currently Combines the per tri output and the sliding window.
     // In future will need to add histo pyramid for a super fast, super low mem version
-    try{  perf::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{  sliding_per_tri::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {
