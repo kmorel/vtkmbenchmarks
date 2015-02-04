@@ -28,10 +28,9 @@ option(VTK_HAS_FLYING_EDGES "Enable if you are building a vtk version that has f
 set(headers
   compare.h
   compare_classic_mc.h
-  compare_lowmem_mc.h
-  compare_perf_mc.h
   compare_per_tri_out_mc.h
   compare_sliding_mc.h
+  compare_sliding_per_tri_out_mc.h
   compare_vtk_mc.h
   worklets.h
   )

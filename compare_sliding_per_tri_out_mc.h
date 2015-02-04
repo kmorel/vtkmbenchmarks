@@ -17,7 +17,7 @@
 
 #include <vector>
 
-namespace perf {
+namespace sliding_per_tri {
 
 //now that the device adapter is included set a global typedef
 //that is the chosen device tag
