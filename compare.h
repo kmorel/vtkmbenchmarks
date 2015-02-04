@@ -3,6 +3,7 @@ static const float ISO_VALUE=0.07;
 
 #include "isosurface.h"
 #include "worklets.h"
+#include "fusedWorklets.h"
 
 //marching cubes algorithms
 #include "compare_classic_mc.h"
@@ -92,9 +93,14 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     std::cout << "Benchmarking Marching Cubes" << std::endl;
 
     std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
-    //Run the basic marching cubes which classifies 1/3/4 cells at a time
-    //and than writes out all geometry for those combined cells at the same time
+    //Run the basic marching cubes which classifies 1 cell at a time
+    //and than writes out all geometry for each input cell at a time
     try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+
+    std::cout << "VTKM Fused Classic,Accelerator,Time,Trial" << std::endl;
+    //Run the basic marching cubes which classifies 1/2/3/4 cells at a time
+    //and than writes out all geometry for those combined cells at the same time
+    try{ mc::RunFusedMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Per Tri Output,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1 cell at a time

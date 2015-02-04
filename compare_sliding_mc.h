@@ -52,7 +52,7 @@ static void doLayeredMarchingCubes( int vdims[3],
     // Call the ClassifyCell functor to compute the Marching Cubes case
     //numbers for each cell, and the number of vertices to be generated
     vtkm::cont::ArrayHandleCounting<vtkm::Id> cellCountImplicitArray(startI, size);
-    typedef worklets::ClassifyCell< vtkm::Float32, vtkm::Id, vtkm::Id > CellClassifyFunctor;
+    typedef worklets::FusedClassifyCell< vtkm::Float32, vtkm::Id, vtkm::Id, 1 > CellClassifyFunctor;
     typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
     CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
@@ -85,7 +85,7 @@ static void doLayeredMarchingCubes( int vdims[3],
     cellHasOutput.ReleaseResourcesExecution();
     numOutputVertsPerCell.ReleaseResourcesExecution();
 
-    typedef worklets::IsosurfaceFunctorUniformGrid<vtkm::Float32, vtkm::Float32> IsoSurfaceFunctor;
+    typedef worklets::IsosurfaceFusedUniformGridFunctor<vtkm::Float32, vtkm::Float32, 1> IsoSurfaceFunctor;
 
     vtkm::cont::ArrayHandle< vtkm::Float32 > scalars;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verts;
@@ -150,7 +150,7 @@ static void RunMarchingCubes(int vdims[3],
     // find the best number of slices to subdivide this grid by
     for(int s=0; s < 9; ++s)
       {
-      if( widthOfEachSlice[s] >= 16)
+      if( widthOfEachSlice[s] >= 32)
         {
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
                                 dim3, numberOfSlices[s]);

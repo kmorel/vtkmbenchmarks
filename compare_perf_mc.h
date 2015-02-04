@@ -146,8 +146,12 @@ static void RunMarchingCubes(int vdims[3],
 
     //because we are generating on a per output tri basis we need to have fatter
     //slices so that we can maximize the accelerator.
-    const int numberOfSlices[5] = {8, 6, 4, 3, 1};
-    const int widthOfEachSlice[5] = { (dims[2]/8 ),
+    const int numberOfSlices[9] = {64, 32, 25, 16, 8, 5, 4, 3, 1};
+    const int widthOfEachSlice[9] = { (dims[2]/64),
+                                      (dims[2]/32),
+                                      (dims[2]/25),
+                                      (dims[2]/16),
+                                      (dims[2]/8 ),
                                       (dims[2]/5 ),
                                       (dims[2]/4 ),
                                       (dims[2]/3 ),
@@ -159,9 +163,9 @@ static void RunMarchingCubes(int vdims[3],
     std::vector< vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > > verticesArrays;
 
     // find the best number of slices to subdivide this grid by
-    for(int s=0; s < 5; ++s)
+    for(int s=0; s < 9; ++s)
       {
-      if( widthOfEachSlice[s] >= 32)
+      if( widthOfEachSlice[s] >= 16)
         {
         doLayeredMarchingCubes( vdims, field, scalarsArrays, verticesArrays,
                                 dim3, numberOfSlices[s]);
