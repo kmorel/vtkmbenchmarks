@@ -98,11 +98,16 @@ bool vtkm::testing::ArgumentsParser::parseArguments(int argc, char* argv[])
       {
       this->Pipeline = MARCHING_CUBES;
       }
+    else if (pipelineflag == FLYING_EDGES)
+      {
+      this->Pipeline = FLYING_EDGES;
+      }
     else
       {
       std::cerr << "Incorrect pipeline choice: " << pipelineflag << std::endl;
       std::cerr << "Threshold is : " << THRESHOLD  << std::endl;
       std::cerr << "Marching Cubes is : " << MARCHING_CUBES  << std::endl;
+      std::cerr << "Flying Edges is : " << FLYING_EDGES  << std::endl;
       }
     }
 

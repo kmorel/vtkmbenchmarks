@@ -12,6 +12,9 @@ static const float ISO_VALUE=0.07;
 #include "compare_sliding_per_tri_out_mc.h"
 #include "compare_vtk_mc.h"
 
+//flying edge algorithms
+#include "compare_flying_edges.h"
+
 //threshold algorithms
 // #include "compare_thresh.h"
 
@@ -87,7 +90,7 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
       // RunVTKThreshold(image,NUM_TRIALS);
       }
   }
-  else //marching cubes
+  else if(pipeline == 2) //marching cubes
   {
     std::cout << "Benchmarking Marching Cubes" << std::endl;
 
@@ -124,9 +127,21 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
       {
       std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
       vtk::RunContourFilter(image,NUM_TRIALS);
+      }
+    }
+  else if(pipeline == 3) //flying edges
+  {
+    std::cout << "Benchmarking Flying Edges" << std::endl;
 
+    std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
+    //Run the basic marching cubes which classifies 1 cell at a time
+    //and than writes out all geometry for each input cell at a time
+    try{ fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+
+    if(device == "Serial")
+      {
 #ifdef VTK_HAS_FLYING_EDGES
-      std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
+      std::cout << "VTK Flying Edges Filter,Accelerator,Time,Trial" << std::endl;
       vtk::RunFlyingEdges(image,NUM_TRIALS);
 #endif
       }
