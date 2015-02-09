@@ -3,7 +3,7 @@ static const float ISO_VALUE=0.07;
 
 #include "isosurface.h"
 #include "worklets.h"
-#include "fusedWorklets.h"
+#include "saveAsPly.h"
 
 //marching cubes algorithms
 #include "compare_classic_mc.h"
@@ -67,7 +67,8 @@ ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleS
 }
 
 
-int RunComparison(std::string device, std::string file, int pipeline, double resample_ratio)
+int RunComparison(std::string device, std::string file, std::string writeLoc,
+                  int pipeline, double resample_ratio)
 {
   std::vector<vtkm::Float32> buffer;
   vtkSmartPointer< vtkImageData > image = ReadData(buffer, file, resample_ratio);
@@ -97,18 +98,18 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1 cell at a time
     //and than writes out all geometry for each input cell at a time
-    try{ mc::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{ mc::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Fused Classic,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1/2/3/4 cells at a time
     //and than writes out all geometry for those combined cells at the same time
-    try{ mc::RunFusedMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{ mc::RunFusedMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Per Tri Output,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1 cell at a time
     //and than generate the geometry on a per output triangle basis, so we
     //have coalesced writes.
-    try{ per_tri::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{ per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Sliding Window,Accelerator,Time,Trial" << std::endl;
     //Run the a sliding window marching cubes which classifies 1 cell at a time
@@ -116,12 +117,12 @@ int RunComparison(std::string device, std::string file, int pipeline, double res
     //of the triangle at a time, but requires all the input data to be uploaded.
     //The primary benifit of this approach is a reduction of memory, since the
     //number of cells we are walking is smaller
-    try{ slide::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{ slide::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Sliding Per Tri Output,Accelerator,Time,Trial" << std::endl;
     // Currently Combines the per tri output and the sliding window.
     // In future will need to add histo pyramid for a super fast, super low mem version
-    try{  sliding_per_tri::RunMarchingCubes(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    try{  sliding_per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {

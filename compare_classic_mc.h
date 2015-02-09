@@ -57,7 +57,7 @@ static void doMarchingCubes( int vdims[3],
       vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(cellHasOutput,
                                                                        cellHasOutput);
   numTotalVertices =
-      vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputVertsPerCell,
+      vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(numOutputVertsPerCell,
                                                                        outputVerticesLocArray);
   // Return if no cells generate geometry
   if (numTotalVertices == 0) return;
@@ -65,6 +65,7 @@ static void doMarchingCubes( int vdims[3],
   //compute the original cell ids that will produce output. We do this by
   //figuring out for each output cell value what input cell generates it
   vtkm::cont::ArrayHandleCounting<vtkm::Id> validCellCountImplicitArray(0, numValidInputCells);
+
   vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::UpperBounds(cellHasOutput,
                                                                  validCellCountImplicitArray,
                                                                  validCellIndicesArray);
@@ -81,17 +82,18 @@ static void doMarchingCubes( int vdims[3],
                                vertexTableArray,
                                triangleTableArray,
                                verticesArray.PrepareForOutput(numTotalVertices, DeviceAdapter()),
-                               scalarsArray.PrepareForOutput(numTotalVertices, DeviceAdapter())
+                               scalarsArray.PrepareForOutput(numTotalVertices, DeviceAdapter()),
+                               outputVerticesLocArray
                                );
 
   vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
-
-  isosurfaceDispatcher.Invoke(validCellIndicesArray, outputVerticesLocArray);
+  isosurfaceDispatcher.Invoke(validCellIndicesArray);
 };
 
 static void RunMarchingCubes(int vdims[3],
                                  std::vector<vtkm::Float32>& buffer,
                                  std::string device,
+                                 std::string writeLoc,
                                  int MAX_NUM_TRIALS,
                                  bool silent=false)
 {
@@ -120,6 +122,11 @@ static void RunMarchingCubes(int vdims[3],
       std::cout << "num cells: " << (scalarsArray.GetNumberOfValues()/3)  << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
       }
+    if(trial == MAX_NUM_TRIALS-1 && !writeLoc.empty())
+      {
+      writeLoc += "mc_" + device + "_simple.ply";
+      saveAsPly(verticesArray, writeLoc);
+      }
     }
 
 }
@@ -127,6 +134,7 @@ static void RunMarchingCubes(int vdims[3],
 static void RunFusedMarchingCubes(int vdims[3],
                                  std::vector<vtkm::Float32>& buffer,
                                  std::string device,
+                                 std::string writeLoc,
                                  int MAX_NUM_TRIALS,
                                  bool silent=false)
 {
@@ -178,6 +186,11 @@ static void RunFusedMarchingCubes(int vdims[3],
       std::cout << "fuse4Cells: " << fuse4Cells << " fuse3Cells: " << fuse3Cells << " fuse2Cells: " << fuse2Cells << std::endl;
       std::cout << "num cells: " << (scalarsArray.GetNumberOfValues()/3)  << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
+      }
+    if(trial == MAX_NUM_TRIALS-1 && !writeLoc.empty())
+      {
+      writeLoc += "mc_" + device + "_fused.ply";
+      saveAsPly(verticesArray, writeLoc);
       }
     }
 
