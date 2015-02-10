@@ -33,10 +33,10 @@ cmake-gui ../vtkm
 ## How To Use Benchmarks ##
 
 Each program has 4 arguments:
-1. file - the nrrd file to read
-2. pipeline - 1 for threshold or 2 for marching cubes
-3. dump - directory to dump output ply files for verification
-4. ratio - scale factor to apply to the dataset
++  file - the nrrd file to read
++  pipeline - 1 for threshold or 2 for marching cubes
++  dump - directory to dump output ply files for verification
++  ratio - scale factor to apply to the dataset
 
 Example
 ```
