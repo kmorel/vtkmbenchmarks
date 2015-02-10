@@ -44,8 +44,12 @@ public:
   double ratio() const
     { return this->Ratio; }
 
+  std::string writeLocation() const
+    { return this->WriteLocation; }
+
 private:
   std::string File;
+  std::string WriteLocation;
   PipelineMode Pipeline;
   double Ratio;
 };

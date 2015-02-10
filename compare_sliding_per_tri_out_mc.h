@@ -126,6 +126,7 @@ static void doLayeredMarchingCubes( int vdims[3],
 static void RunMarchingCubes(int vdims[3],
                              std::vector<vtkm::Float32>& buffer,
                              std::string device,
+                             std::string writeLoc,
                              int MAX_NUM_TRIALS,
                              bool silent=false)
 {
@@ -184,6 +185,12 @@ static void RunMarchingCubes(int vdims[3],
       {
       std::cout << "num cells: " << numCells << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
+      }
+
+    if(trial == MAX_NUM_TRIALS-1 && !writeLoc.empty())
+      {
+      writeLoc += "mc_" + device + "_sliding_tri_out.ply";
+      saveAsPly(verticesArrays, writeLoc);
       }
     }
 

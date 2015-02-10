@@ -73,7 +73,7 @@ static void doLayeredMarchingCubes( int vdims[3],
       { continue; }
 
    int numTotalVertices =
-        vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(numOutputVertsPerCell,
+        vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(numOutputVertsPerCell,
                                                                          outputVerticesLocArray);
     //compute the original cell ids that will produce output. We do this by
     //figuring out for each output cell value what input cell generates it
@@ -98,12 +98,12 @@ static void doLayeredMarchingCubes( int vdims[3],
                                  triangleTableArray,
                                  verts.PrepareForOutput(numTotalVertices, DeviceAdapter()),
                                  scalars.PrepareForOutput(numTotalVertices, DeviceAdapter()),
+                                 outputVerticesLocArray,
                                  startI
                                  );
 
     vtkm::worklet::DispatcherMapField< IsoSurfaceFunctor > isosurfaceDispatcher(isosurface);
-
-    isosurfaceDispatcher.Invoke(validCellIndicesArray, outputVerticesLocArray);
+    isosurfaceDispatcher.Invoke(validCellIndicesArray);
 
     verticesArrays.push_back(verts);
     scalarsArrays.push_back(scalars);
@@ -113,6 +113,7 @@ static void doLayeredMarchingCubes( int vdims[3],
 static void RunMarchingCubes(int vdims[3],
                              std::vector<vtkm::Float32>& buffer,
                              std::string device,
+                             std::string writeLoc,
                              int MAX_NUM_TRIALS,
                              bool silent=false)
 {
@@ -169,6 +170,12 @@ static void RunMarchingCubes(int vdims[3],
       {
       std::cout << "num cells: " << numCells << std::endl;
       std::cout << "vtkm," << device << "," << time << "," << trial << std::endl;
+      }
+
+    if(trial == MAX_NUM_TRIALS-1 && !writeLoc.empty())
+      {
+      writeLoc += "mc_" + device + "_sliding.ply";
+      saveAsPly(verticesArrays, writeLoc);
       }
     }
 

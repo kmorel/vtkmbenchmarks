@@ -28,8 +28,11 @@ int main(int argc, char* argv[])
     }
 
   const std::string file = parser.file();
+  const std::string writeLoc = parser.writeLocation();
+
   const int pipeline = parser.pipeline();
   const double ratio = parser.ratio();
-  RunComparison("Serial", file, pipeline, ratio);
+
+  RunComparison("Serial", file, writeLoc, pipeline, ratio);
   return 0;
 }

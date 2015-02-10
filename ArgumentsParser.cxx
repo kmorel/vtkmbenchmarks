@@ -21,7 +21,7 @@
 #include <sstream>
 #include <string>
 
-enum  optionIndex { UNKNOWN, HELP, FILEPATH, PIPELINE, RESAMPLE_RATIO};
+enum  optionIndex { UNKNOWN, HELP, FILEPATH, PIPELINE, WRITE_LOC, RESAMPLE_RATIO};
 const vtkm::testing::option::Descriptor usage[] =
 {
   {UNKNOWN,   0,"" , ""    ,      vtkm::testing::option::Arg::None, "USAGE: example [options]\n\n"
@@ -29,6 +29,7 @@ const vtkm::testing::option::Descriptor usage[] =
   {HELP,      0,"h" , "help",    vtkm::testing::option::Arg::None, "  --help, -h  \tPrint usage and exit." },
   {FILEPATH,      0,"", "file",      vtkm::testing::option::Arg::Optional, "  --file  \t nrrd file to read." },
   {PIPELINE,  0,"", "pipeline",  vtkm::testing::option::Arg::Optional, "  --pipeline  \t What pipeline to run ( 1 threshold, 2 marching cubes)." },
+  {WRITE_LOC,  0,"", "dump",  vtkm::testing::option::Arg::Optional, "  --dump  \t Folder to write ply dumps of the results of each algorithm." },
   {RESAMPLE_RATIO,  0,"", "ratio",  vtkm::testing::option::Arg::Optional, "  --ratio  \t Resample ratio for the input data." },
   {UNKNOWN,   0,"",  "",         vtkm::testing::option::Arg::None, "\nExample:\n"
                                                                    " example --file=./test --pipeline=1\n"},
@@ -39,6 +40,7 @@ const vtkm::testing::option::Descriptor usage[] =
 //-----------------------------------------------------------------------------
 vtkm::testing::ArgumentsParser::ArgumentsParser():
   File(""),
+  WriteLocation(""),
   Pipeline(MARCHING_CUBES),
   Ratio(1.0)
 {
@@ -109,6 +111,13 @@ bool vtkm::testing::ArgumentsParser::parseArguments(int argc, char* argv[])
       std::cerr << "Marching Cubes is : " << MARCHING_CUBES  << std::endl;
       std::cerr << "Flying Edges is : " << FLYING_EDGES  << std::endl;
       }
+    }
+
+  if ( options[WRITE_LOC] )
+    {
+    std::string sarg(options[WRITE_LOC].last()->arg);
+    std::stringstream argstream(sarg);
+    argstream >> this->WriteLocation;
     }
 
   if ( options[RESAMPLE_RATIO] )
