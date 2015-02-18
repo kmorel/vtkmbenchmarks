@@ -41,10 +41,10 @@ struct FlyingEdgeContData
 {
   vtkm::cont::ArrayHandle< FieldType > scalarHandle;
   vtkm::cont::ArrayHandle< vtkm::UInt8 > xEdgeCaseHandle;
-  vtkm::cont::ArrayHandle< vtkm::UInt8 > numTrianglesPerCellHandle;
+
   vtkm::cont::ArrayHandle< vtkm::Id > xEdgeSumHandle;
-  vtkm::cont::ArrayHandle< vtkm::Id > xMinIntHandle;
-  vtkm::cont::ArrayHandle< vtkm::Id > xMaxIntHandle;
+  vtkm::cont::ArrayHandle< vtkm::Id > yEdgeSumHandle;
+  vtkm::cont::ArrayHandle< vtkm::Id > zEdgeSumHandle;
   vtkm::cont::ArrayHandle< vtkm::Id > numTrisPerRowHandle;
 
   float isovalue;
@@ -59,13 +59,12 @@ struct FlyingEdgeContData
   FlyingEdgeContData( const vtkm::Vec<vtkm::Float32,3> origin,
                       const vtkm::Vec<vtkm::Float32,3> spacing,
                       int p_dims[3],
-                      const vtkm::cont::ArrayHandle< FieldType >& scalarInHandle,
+                      vtkm::cont::ArrayHandle< FieldType > scalarInHandle,
                       float iso):
     Origin(origin),
     Spacing(spacing)
    {
     this->scalarHandle = scalarInHandle;
-
     this->isovalue = iso;
 
     this->dims[0] = p_dims[0];
@@ -74,12 +73,13 @@ struct FlyingEdgeContData
 
     this->inc1 = p_dims[0];
     this->inc2 = p_dims[0] * p_dims[1];
-    this->sliceOffset = (p_dims[0]-1) * p_dims[1]+1;
+    this->sliceOffset = (p_dims[0]-1) * p_dims[1];
    }
 };
 
+//----------------------------------------------------------------------------
 template <typename FieldType>
-struct FlyingEdgeExecData
+struct FlyingEdgePass1ExecData
 {
   typedef typename PortalTypes<FieldType>::PortalConst FieldPortalType;
   typedef typename PortalTypes<vtkm::UInt8>::Portal UInt8PortalType;
@@ -90,22 +90,18 @@ struct FlyingEdgeExecData
   int inc1;
   int inc2;
   int sliceOffset;
-  vtkm::Vec<vtkm::Float32,3> Origin;
-  vtkm::Vec<vtkm::Float32,3> Spacing;
-
   FieldPortalType scalarData;
   UInt8PortalType edgeXCases;
+
   IdPortalType xsum;
 
   explicit
-  FlyingEdgeExecData( FlyingEdgeContData<FieldType>& metaData):
+  FlyingEdgePass1ExecData( FlyingEdgeContData<FieldType>& metaData):
     isovalue(metaData.isovalue),
     dims(metaData.dims[0], metaData.dims[1], metaData.dims[2]),
     inc1(metaData.inc1),
     inc2(metaData.inc2),
     sliceOffset(metaData.sliceOffset),
-    Origin(metaData.Origin),
-    Spacing(metaData.Spacing),
     scalarData(metaData.scalarHandle.PrepareForInput(DeviceAdapter())),
     edgeXCases(metaData.xEdgeCaseHandle.PrepareForOutput( (metaData.dims[0]-1) * metaData.dims[1] * metaData.dims[2], DeviceAdapter() )),
     xsum(metaData.xEdgeSumHandle.PrepareForOutput(metaData.dims[1] * metaData.dims[2], DeviceAdapter()) )
@@ -121,10 +117,58 @@ struct FlyingEdgeExecData
     std::cout << "algo.Inc[2]: " << inc2 << std::endl;
 
   }
+};
+
+//----------------------------------------------------------------------------
+template <typename FieldType>
+struct FlyingEdgePass2ExecData
+{
+  typedef typename PortalTypes<FieldType>::PortalConst FieldPortalType;
+  typedef typename PortalTypes<vtkm::UInt8>::PortalConst UInt8ConstPortalType;
+  typedef typename PortalTypes<vtkm::Id>::Portal IdPortalType;
+  typedef typename PortalTypes<vtkm::Id>::PortalConst IdConstPortalType;
+
+  float isovalue;
+  vtkm::Id3 dims;
+  int inc1;
+  int inc2;
+  int sliceOffset;
+
+  UInt8ConstPortalType edgeXCases;
+  IdConstPortalType xsum;
+
+  IdPortalType ysum;
+  IdPortalType zsum;
+  IdPortalType numTris;
+
+  explicit
+  FlyingEdgePass2ExecData( FlyingEdgeContData<FieldType>& metaData):
+    isovalue(metaData.isovalue),
+    dims(metaData.dims[0], metaData.dims[1], metaData.dims[2]),
+    inc1(metaData.inc1),
+    inc2(metaData.inc2),
+    sliceOffset(metaData.sliceOffset),
+    edgeXCases(metaData.xEdgeCaseHandle.PrepareForInput( DeviceAdapter() )),
+    xsum(metaData.xEdgeSumHandle.PrepareForInput( DeviceAdapter()) ),
+    ysum(metaData.yEdgeSumHandle.PrepareForOutput((metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter()) ),
+    zsum(metaData.zEdgeSumHandle.PrepareForOutput((metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter()) ),
+    numTris(metaData.numTrisPerRowHandle.PrepareForOutput((metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter()) )
+  {
+
+  }
+
+  VTKM_EXEC_EXPORT
+  vtkm::UInt8 numberOfPrimitives( vtkm::UInt8 ecase ) const
+    { return EdgeCasesTable[ecase][0]; }
+
+  VTKM_EXEC_EXPORT
+  vtkm::UInt8 edgeUses( vtkm::UInt8 ecase, vtkm::UInt8 index ) const
+    { return EdgeUsesTable[ecase][index] ; }
 
 };
 
 
+//----------------------------------------------------------------------------
 template <typename FieldType>
 class ProcessXEdges : public vtkm::worklet::WorkletMapField
 {
@@ -133,10 +177,10 @@ public:
   typedef void ExecutionSignature(_1);
   typedef _1 InputDomain;
 
-  FlyingEdgeExecData<FieldType> d;
+  FlyingEdgePass1ExecData<FieldType> d;
 
   VTKM_CONT_EXPORT
-  ProcessXEdges( FlyingEdgeExecData<FieldType>& data) :
+  ProcessXEdges( FlyingEdgePass1ExecData<FieldType>& data) :
          d( data )
    {
    }
@@ -154,6 +198,7 @@ public:
   const vtkm::Id ydim = this->d.dims[1];
   for (vtkm::Id row=0; row < ydim; ++row)
     {
+    // std::cout << offset << ", " << row << ", " << id << std::endl;
     this->process(offset, row, id);
     offset += this->d.inc1;
     }//for all rows in this slice
@@ -163,15 +208,15 @@ public:
   void process(vtkm::Id offset, vtkm::Id row, vtkm::Id slice) const
   {
   const vtkm::Id nxcells = this->d.dims[0]-1;
-  const vtkm::Id metaWritePos = slice * this->d.dims[1] + row;
+  const vtkm::Id metaWritePos = slice * nxcells + row;
   const vtkm::Id writePos = slice * this->d.sliceOffset + row * nxcells;
 
   FieldType s0=0;
   FieldType s1= this->d.scalarData.Get(offset);
 
-  vtkm::Id tempSum = 0;
-  vtkm::Id tempMin = nxcells;
-  vtkm::Id tempMax = 0;
+  vtkm::Id tempXSum = 0;
+  // vtkm::Id tempMin = nxcells;
+  // vtkm::Id tempMax = 0;
 
   //for all cells in this row
   for (int i=0; i < nxcells; ++i)
@@ -192,17 +237,16 @@ public:
     //write back our edge case, this actually needs to be per cell
     //not per row
     this->d.edgeXCases.Set(writePos + i,edgeCase);
-
     if ( edgeCase == flyingedges::LeftAbove ||
          edgeCase == flyingedges::RightAbove )
       {
-      ++tempSum; //increment number of intersections along x-edge
-      tempMin = ( i < tempMin ? i : tempMin);
-      tempMax = i + 1;
+      ++tempXSum; //increment number of intersections along x-edge
+      // tempMin = ( i < tempMin ? i : tempMin);
+      // tempMax = i + 1;
       }//if contour interacts with this x-edge
     }
 
-  this->d.xsum.Set(metaWritePos,tempSum); //write back the number of intersections along x-edge
+  this->d.xsum.Set(metaWritePos,tempXSum); //write back the number of intersections along x-edge
 
   // // The beginning and ending of intersections along the edge is used for
   // // computational trimming.
@@ -220,10 +264,10 @@ public:
   typedef void ExecutionSignature(_1);
   typedef _1 InputDomain;
 
-  FlyingEdgeExecData<FieldType> d;
+  FlyingEdgePass2ExecData<FieldType> d;
 
   VTKM_CONT_EXPORT
-  ProcessYZEdges( FlyingEdgeExecData<FieldType>& data) :
+  ProcessYZEdges( FlyingEdgePass2ExecData<FieldType>& data) :
          d( data )
    {
    }
@@ -243,7 +287,7 @@ public:
   for (vtkm::Id row=0; row < ycdim; ++row)
     {
     this->process(offset, row, id);
-    offset++;
+    offset+=this->d.inc1;
     }//for all rows in this slice
   }
 
@@ -259,13 +303,15 @@ public:
   // voxel axes. Also check the number of primitives generated.
   vtkm::UInt8 edgeCase[4] = {0, 0, 0, 0};
 
-  vtkm::Id temp_sum = 0;
+  vtkm::Id tempTriSum = 0;
+  vtkm::Id tempYSum = 0;
+  vtkm::Id tempZSum = 0;
   for (int i=0; i < nxcells; ++i)
     {
     edgeCase[0] = this->d.edgeXCases.Get(i + readPos);
     edgeCase[1] = this->d.edgeXCases.Get(i + readPos + (this->d.dims[0] - 1) );
     edgeCase[2] = this->d.edgeXCases.Get(i + readPos + this->d.sliceOffset);
-    edgeCase[3] = this->d.edgeXCases.Get(i + readPos + this->d.sliceOffset + this->d.dims[0] -1 );
+    edgeCase[3] = this->d.edgeXCases.Get(i + readPos + this->d.sliceOffset + (this->d.dims[0] - 1) );
 
     const vtkm::UInt8 eCase = (edgeCase[0]    |
                                edgeCase[1]<<2 |
@@ -274,14 +320,18 @@ public:
 
     //using the eCase for this voxel we need to lookup the number of primitives
     //that this voxel will generate.
-    const vtkm::Id numTris = (eCase ==0) ? 0 : 1; //this->edgeCaseTable.Get(eCase*16);
-
-    //write out the number of triangles for this cell
-    // this->numTriangles.Set( triWritePos,  numTris);
-    // temp_sum += numTris;
+    const vtkm::UInt8 numTris = this->d.numberOfPrimitives(eCase);
+    if(numTris != 0)
+      {
+      tempTriSum += numTris;
+      tempYSum += this->d.edgeUses(eCase, 4); //y-voxel axes edge always counted
+      tempZSum += this->d.edgeUses(eCase, 8); //z-voxel axes edge always counted
+      }
     }//for all voxels along this x-edge
 
-//   xNumTris = temp_sum;
+    this->d.numTris.Set(metaWritePos,tempTriSum); //write back the number of triangles
+    this->d.ysum.Set(metaWritePos,tempYSum); //write back the number of intersections along y-edge
+    this->d.zsum.Set(metaWritePos,tempZSum); //write back the number of intersections along z-edge
   }
 };
 
@@ -296,8 +346,8 @@ typedef VTKM_DEFAULT_DEVICE_ADAPTER_TAG DeviceAdapter;
 static void doFlyingEdges( int pdims[3], //point dims
                            int cdims[3], //cell dims
                            const vtkm::cont::ArrayHandle<vtkm::Float32>& field,
-                           vtkm::cont::ArrayHandle<vtkm::Float32> scalarsArray,
-                           vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray
+                           vtkm::cont::ArrayHandle<vtkm::Float32>& scalarsArray,
+                           vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> >& verticesArray
                            )
 {
 
@@ -311,14 +361,13 @@ static void doFlyingEdges( int pdims[3], //point dims
                                                        field,
                                                        ISO_VALUE);
 
-  worklets::FlyingEdgeExecData<vtkm::Float32> execData( contData );
-
   // PASS 1: Traverse all x-rows building edge cases and counting number of
   // intersections (i.e., accumulate information necessary for later output
   // memory allocation, e.g., the number of output points along the x-rows
   // are counted).
   {
-  vtkm::cont::ArrayHandleCounting<vtkm::Id> passIds(0, cdims[2]);
+  worklets::FlyingEdgePass1ExecData<vtkm::Float32> execData( contData );
+  vtkm::cont::ArrayHandleCounting<vtkm::Id> passIds(0, pdims[2]);
 
   typedef worklets::ProcessXEdges< vtkm::Float32 > ProcessXEdgeFunctor;
   typedef vtkm::worklet::DispatcherMapField< ProcessXEdgeFunctor > XEdgeDispatcher;
@@ -332,7 +381,8 @@ static void doFlyingEdges( int pdims[3], //point dims
   // result is a count of the number of y- and z-intersections, as well as
   // the number of triangles generated along these voxel rows.
   {
-  vtkm::cont::ArrayHandleCounting<vtkm::Id> passIds(0, cdims[2]-1);
+  worklets::FlyingEdgePass2ExecData<vtkm::Float32> execData( contData );
+  vtkm::cont::ArrayHandleCounting<vtkm::Id> passIds(0, cdims[2]);
 
   typedef worklets::ProcessYZEdges< vtkm::Float32 > ProcessYZEdgeFunctor;
   typedef vtkm::worklet::DispatcherMapField< ProcessYZEdgeFunctor > YZEdgeDispatcher;
@@ -341,6 +391,23 @@ static void doFlyingEdges( int pdims[3], //point dims
   YZEdgeDispatcher yzEDispatcher(yzFunctor);
   yzEDispatcher.Invoke(passIds);
   }
+
+  // PASS 3: Now allocate and generate output. First we have to update the
+  // edge meta data to partition the output into separate pieces so
+  // independent threads can write without collisions. Once allocation is
+  // complete, the volume is processed on a voxel row by row basis to
+  // produce output points and triangles, and interpolate point attribute
+  // data (as necessary).
+  vtkm::cont::ArrayHandle< vtkm::Id > numOutputTrisPerCell;
+  const vtkm::Id numOutputTriangles =
+      vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(contData.numTrisPerRowHandle,
+                                                                       numOutputTrisPerCell);
+  //terminate if no cells has triangles left
+  if(numOutputTriangles == 0)
+    { return; }
+
+  verticesArray.PrepareForOutput(numOutputTriangles*3, DeviceAdapter());
+  scalarsArray.PrepareForOutput(numOutputTriangles*3, DeviceAdapter());
 
 };
 

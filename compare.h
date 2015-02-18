@@ -2,6 +2,7 @@
 static const float ISO_VALUE=0.07;
 
 #include "MarchingCubesTables.h"
+#include "FlyingEdgesTables.h"
 #include "worklets.h"
 #include "saveAsPly.h"
 
