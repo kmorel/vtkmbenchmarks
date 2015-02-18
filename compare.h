@@ -1,7 +1,7 @@
 
 static const float ISO_VALUE=0.07;
 
-#include "isosurface.h"
+#include "MarchingCubesTables.h"
 #include "worklets.h"
 #include "saveAsPly.h"
 
