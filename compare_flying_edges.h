@@ -295,7 +295,7 @@ public:
   void process(vtkm::Id offset, vtkm::Id row, vtkm::Id slice) const
   {
   const vtkm::Id nxcells = this->d.dims[0]-1;
-  const vtkm::Id metaWritePos = slice * this->d.dims[1] + row;
+  const vtkm::Id metaWritePos = slice * nxcells + row;
   const vtkm::Id readPos = slice * this->d.sliceOffset + row * nxcells;
 
   // Okay run along the x-voxels and count the number of y- and
