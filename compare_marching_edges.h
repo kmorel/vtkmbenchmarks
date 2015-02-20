@@ -194,7 +194,7 @@ public:
   //row and slice we are.
   const vtkm::Id row = yzid % this->d.dims[1];
   const vtkm::Id slice = yzid / this->d.dims[1];
-  const vtkm::Id offset = slice * this->d.inc2 + row * this->d.inc1;
+  const vtkm::Id offset = slice * this->d.inc2 + row;// * this->d.inc1;
 
   // std::cout << offset << ", " << row << ", " << slice << std::endl;
 
@@ -216,7 +216,7 @@ public:
   for (int i=0; i < nxcells; ++i)
     {
     s0 = s1;
-    s1 = this->d.scalarData.Get(offset + i + 1);
+    s1 = this->d.scalarData.Get(offset + this->d.inc1 * (i + 1) );
 
     vtkm::UInt8 edgeCase = marchingEdges::Below;
     if (s0 >= this->d.isovalue)
