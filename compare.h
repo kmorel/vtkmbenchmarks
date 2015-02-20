@@ -15,6 +15,7 @@ static const float ISO_VALUE=0.07;
 
 //flying edge algorithms
 #include "compare_flying_edges.h"
+#include "compare_marching_edges.h"
 
 //threshold algorithms
 // #include "compare_thresh.h"
@@ -133,10 +134,13 @@ int RunComparison(std::string device, std::string file, std::string writeLoc,
     }
   else if(pipeline == 3) //flying edges
   {
-    std::cout << "Benchmarking Flying Edges" << std::endl;
+    std::cout << "Benchmarking Flying/Marching Edges" << std::endl;
 
-    std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
-    try{ fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS); } catch(...) {}
+    std::cout << "VTKM Marching Edges,Accelerator,Time,Trial" << std::endl;
+    me::RunMarchingEdges(dims,buffer,device,NUM_TRIALS);
+
+    // std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
+    // fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS);
 
     if(device == "Serial")
       {
