@@ -1,7 +1,8 @@
 
 static const float ISO_VALUE=0.07;
 
-#include "isosurface.h"
+#include "MarchingCubesTables.h"
+#include "FlyingEdgesTables.h"
 #include "worklets.h"
 #include "saveAsPly.h"
 
@@ -28,7 +29,7 @@ static const float ISO_VALUE=0.07;
 #include <iostream>
 #include <vector>
 
-static const int NUM_TRIALS = 8;
+static const int NUM_TRIALS = 2;
 
 
 static vtkSmartPointer<vtkImageData>
@@ -135,8 +136,6 @@ int RunComparison(std::string device, std::string file, std::string writeLoc,
     std::cout << "Benchmarking Flying Edges" << std::endl;
 
     std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
-    //Run the basic marching cubes which classifies 1 cell at a time
-    //and than writes out all geometry for each input cell at a time
     try{ fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
