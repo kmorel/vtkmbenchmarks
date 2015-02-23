@@ -42,9 +42,7 @@ struct FlyingEdgeContData
   vtkm::cont::ArrayHandle< FieldType > scalarHandle;
   vtkm::cont::ArrayHandle< vtkm::UInt8 > xEdgeCaseHandle;
 
-  vtkm::cont::ArrayHandle< vtkm::Id > xEdgeSumHandle;
-  vtkm::cont::ArrayHandle< vtkm::Id > yEdgeSumHandle;
-  vtkm::cont::ArrayHandle< vtkm::Id > zEdgeSumHandle;
+  vtkm::cont::ArrayHandle< vtkm::Id3 > sumsHandle;
   vtkm::cont::ArrayHandle< vtkm::Id > numTrisPerRowHandle;
 
   float isovalue;
@@ -83,7 +81,7 @@ struct FlyingEdgePass1ExecData
 {
   typedef typename PortalTypes<FieldType>::PortalConst FieldPortalType;
   typedef typename PortalTypes<vtkm::UInt8>::Portal UInt8PortalType;
-  typedef typename PortalTypes<vtkm::Id>::Portal IdPortalType;
+  typedef typename PortalTypes<vtkm::Id3>::Portal Id3PortalType;
 
   float isovalue;
   vtkm::Id3 dims;
@@ -93,7 +91,7 @@ struct FlyingEdgePass1ExecData
   FieldPortalType scalarData;
   UInt8PortalType edgeXCases;
 
-  IdPortalType xsum;
+  Id3PortalType sums;
 
   explicit
   FlyingEdgePass1ExecData( FlyingEdgeContData<FieldType>& metaData):
@@ -104,7 +102,7 @@ struct FlyingEdgePass1ExecData
     sliceOffset(metaData.sliceOffset),
     scalarData(metaData.scalarHandle.PrepareForInput(DeviceAdapter())),
     edgeXCases(metaData.xEdgeCaseHandle.PrepareForOutput( (metaData.dims[0]-1) * metaData.dims[1] * metaData.dims[2], DeviceAdapter() )),
-    xsum(metaData.xEdgeSumHandle.PrepareForOutput(metaData.dims[1] * metaData.dims[2], DeviceAdapter()) )
+    sums(metaData.sumsHandle.PrepareForOutput(metaData.dims[1] * metaData.dims[2], DeviceAdapter()) )
   {
     std::cout << "FlyingEdgeExecData" << std::endl;
     std::cout << "algo.Dims[0]: " << dims[0] << std::endl;
@@ -125,8 +123,11 @@ struct FlyingEdgePass2ExecData
 {
   typedef typename PortalTypes<FieldType>::PortalConst FieldPortalType;
   typedef typename PortalTypes<vtkm::UInt8>::PortalConst UInt8ConstPortalType;
-  typedef typename PortalTypes<vtkm::Id>::Portal IdPortalType;
   typedef typename PortalTypes<vtkm::Id>::PortalConst IdConstPortalType;
+
+  typedef typename PortalTypes<vtkm::Id>::Portal IdPortalType;
+  typedef typename PortalTypes<vtkm::Id3>::Portal Id3PortalType;
+
 
   float isovalue;
   vtkm::Id3 dims;
@@ -135,10 +136,8 @@ struct FlyingEdgePass2ExecData
   int sliceOffset;
 
   UInt8ConstPortalType edgeXCases;
-  IdConstPortalType xsum;
 
-  IdPortalType ysum;
-  IdPortalType zsum;
+  Id3PortalType sums;
   IdPortalType numTris;
 
   explicit
@@ -149,9 +148,7 @@ struct FlyingEdgePass2ExecData
     inc2(metaData.inc2),
     sliceOffset(metaData.sliceOffset),
     edgeXCases(metaData.xEdgeCaseHandle.PrepareForInput( DeviceAdapter() )),
-    xsum(metaData.xEdgeSumHandle.PrepareForInput( DeviceAdapter()) ),
-    ysum(metaData.yEdgeSumHandle.PrepareForOutput((metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter()) ),
-    zsum(metaData.zEdgeSumHandle.PrepareForOutput((metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter()) ),
+    sums(metaData.sumsHandle.PrepareForInPlace( DeviceAdapter()) ),
     numTris(metaData.numTrisPerRowHandle.PrepareForOutput((metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter()) )
   {
 
@@ -246,7 +243,7 @@ public:
       }//if contour interacts with this x-edge
     }
 
-  this->d.xsum.Set(metaWritePos,tempXSum); //write back the number of intersections along x-edge
+  this->d.sums.Set(metaWritePos,  vtkm::make_Vec(tempXSum,0,0)); //write back the number of intersections along x-edge
 
   // // The beginning and ending of intersections along the edge is used for
   // // computational trimming.
@@ -303,6 +300,10 @@ public:
   // voxel axes. Also check the number of primitives generated.
   vtkm::UInt8 edgeCase[4] = {0, 0, 0, 0};
 
+  //don't use tempSums as a local write back location
+  //so that the for loop doesn't require this memory
+  //read before it can iterate
+  vtkm::Id3 tempSums = this->d.sums.Get(metaWritePos);
   vtkm::Id tempTriSum = 0;
   vtkm::Id tempYSum = 0;
   vtkm::Id tempZSum = 0;
@@ -330,8 +331,9 @@ public:
     }//for all voxels along this x-edge
 
     this->d.numTris.Set(metaWritePos,tempTriSum); //write back the number of triangles
-    this->d.ysum.Set(metaWritePos,tempYSum); //write back the number of intersections along y-edge
-    this->d.zsum.Set(metaWritePos,tempZSum); //write back the number of intersections along z-edge
+    tempSums[1] = tempYSum;
+    tempSums[2] = tempZSum;
+    this->d.sums.Set(metaWritePos,tempSums);
   }
 };
 
