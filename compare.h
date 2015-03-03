@@ -11,7 +11,9 @@ static const float ISO_VALUE=0.07;
 #include "compare_per_tri_out_mc.h"
 #include "compare_sliding_mc.h"
 #include "compare_sliding_per_tri_out_mc.h"
+#include "compare_y_stride_mc.h"
 #include "compare_vtk_mc.h"
+
 
 //flying edge algorithms
 #include "compare_flying_edges.h"
@@ -124,6 +126,12 @@ int RunComparison(std::string device, std::string file, std::string writeLoc,
     // Currently Combines the per tri output and the sliding window.
     // In future will need to add histo pyramid for a super fast, super low mem version
     try{  sliding_per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+
+
+    std::cout << "VTKM Y Stride Output,Accelerator,Time,Trial" << std::endl;
+    // Currently Combines the per tri output and the sliding window.
+    // In future will need to add histo pyramid for a super fast, super low mem version
+    try{  y_stride::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     if(device == "Serial")
       {

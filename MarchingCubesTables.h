@@ -18,6 +18,9 @@
 //  this software.
 //============================================================================
 
+#include <vtkm/Types.h>
+
+VTKM_EXEC_CONSTANT_EXPORT
 const int numVerticesTable[256] = {
     0,
     3,
@@ -277,6 +280,7 @@ const int numVerticesTable[256] = {
     0,
 };
 
+VTKM_EXEC_CONSTANT_EXPORT
 const int triTable[256*16] =
 {
 #define X -1
