@@ -186,7 +186,7 @@ struct MarchingEdgePass3ExecData
   int sliceOffset;
 
   UInt8ConstPortalType edgeYCases;
-  IdConstPortalType numYTris;
+  IdConstPortalType triWriteOffset;
   ScalarPortalType scalars;
   VertexPortalType vertices;
 
@@ -200,7 +200,7 @@ struct MarchingEdgePass3ExecData
     inc2(metaData.inc2),
     sliceOffset(metaData.sliceOffset),
     edgeYCases(metaData.yEdgeCaseHandle.PrepareForInput( DeviceAdapter() )),
-    numYTris(metaData.numYTrisPerRowHandle.PrepareForInput( DeviceAdapter()) ),
+    triWriteOffset(metaData.numYTrisPerRowHandle.PrepareForInput( DeviceAdapter()) ),
     scalars( scalarsPortal ),
     vertices( verticesPortal )
 
@@ -410,13 +410,42 @@ public:
   // voxel axes. Also check the number of primitives generated.
   vtkm::UInt8 edgeCase[4] = {0, 0, 0, 0};
 
-  vtkm::Id currentTriIncScan = this->d.numYTris.Get(metaReadPos); //read the location to write out triangle
+  vtkm::Id currentTriIncScan = this->d.triWriteOffset.Get(metaReadPos); //read the location to write out triangle
   for (int i=0; i < nycells; ++i)
     {
     edgeCase[0] = this->d.edgeYCases.Get( (i * nycells) + readPos);
     edgeCase[1] = this->d.edgeYCases.Get( (i * nycells) + readPos + 1 );
     edgeCase[2] = this->d.edgeYCases.Get( (i * nycells) + readPos + this->d.sliceOffset);
     edgeCase[3] = this->d.edgeYCases.Get( (i * nycells) + readPos + this->d.sliceOffset + 1 );
+
+
+    const vtkm::UInt8 eCase = (edgeCase[0]    |
+                               edgeCase[1]<<2 |
+                               edgeCase[2]<<4 |
+                               edgeCase[3]<<6 );
+
+    //using the eCase for this voxel we need to lookup the number of primitives
+    //that this voxel will generate.
+    const vtkm::UInt8 numTris = this->d.numberOfPrimitives(eCase);
+    for(int j=0; j < numTris; ++j)
+      {
+      //write out fake triangles for now this is to get a better handle
+      //on how slow writing triangles like this will be like
+      vtkm::Vec<vtkm::Float32,3> v(currentTriIncScan + (j*3),
+                                   currentTriIncScan + (j*3) + 1,
+                                   currentTriIncScan + (j*3) + 2);
+
+      this->d.vertices.Set(currentTriIncScan + j, v);
+      this->d.scalars.Set(currentTriIncScan + j, 1.0);
+
+      //we have two options here.
+      //1 is that we have each cell output without removing duplicate edges
+      //etc, this means we need to fetch the edge info an interpolate in the
+      //for loop
+      //2 we do a proper marching edges and output connectivity in one pass
+      //and in a second output the actual point locations
+      }
+    currentTriIncScan += numTris;
 
     }//for all voxels along this x-edge
   }
@@ -494,14 +523,6 @@ static void doMarchingEdges( int pdims[3], //point dims
   vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanExclusive(
     *reinterpret_cast< vtkm::cont::ArrayHandle< vtkm::Id >* >(&contData.sumsHandle),
     *reinterpret_cast< vtkm::cont::ArrayHandle< vtkm::Id >* >(&contData.sumsHandle));
-
-
-  // const vtkm::Id  numOutputXTriangles =
-  //     vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::ScanInclusive(contData.numXTrisPerRowHandle,
-  //                                                                      contData.numXTrisPerRowHandle);
-
-  // std::cout << "numOutputXTriangles: " << numOutputXTriangles << std::endl;
-
 
   if(numOutputYTriangles == 0)
     { return; }
