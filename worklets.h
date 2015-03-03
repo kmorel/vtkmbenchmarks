@@ -43,22 +43,17 @@ public:
   typedef typename PortalTypes<FieldType>::PortalConst FieldPortalType;
   FieldPortalType pointData;
 
-  typedef typename PortalTypes<vtkm::Id>::PortalConst TablePortalType;
-  TablePortalType vertTable;
-
   float isovalue;
   int xdim, ydim, zdim;
   int cellsPerLayer;
   int pointsPerLayer;
 
-  template<typename T, typename U>
+  template<typename T>
   VTKM_CONT_EXPORT
   FusedClassifyCell(const T& pointHandle,
-               const U& vertTableHandle,
-               float iso,
-               int dims[3]) :
+                    float iso,
+                    int dims[3]) :
          pointData( pointHandle.PrepareForInput( DeviceAdapter() ) ),
-         vertTable( vertTableHandle.PrepareForInput( DeviceAdapter() ) ),
          isovalue( iso ),
          xdim(dims[0]),
          ydim(dims[1]),
@@ -109,7 +104,7 @@ public:
     cubeindex += (f5 > isovalue)*32;
     cubeindex += (f6 > isovalue)*64;
     cubeindex += (f7 > isovalue)*128;
-    VertNumType vertCount = this->vertTable.Get(cubeindex);
+    VertNumType vertCount = numVerticesTable[cubeindex];
 
     //handle if we are fusing multiple cells now
     for(int i=1; i < NumCellsToFuse; ++i)
@@ -153,7 +148,7 @@ public:
       cubeindex += (f7 > isovalue)*128;
 
       //saving number of triangles not number of verts
-      vertCount += this->vertTable.Get(cubeindex);
+      vertCount += numVerticesTable[cubeindex];
       }
 
     // Return the number of triangles this case generates
@@ -174,7 +169,7 @@ public:
   typedef _1 InputDomain;
 
   typedef typename PortalTypes< vtkm::Id >::PortalConst IdPortalType;
-  IdPortalType triangleTable, vertexTable, outputVerticesLoc;
+  IdPortalType outputVerticesLoc;
 
   typedef typename PortalTypes< FieldType >::PortalConst FieldPortalType;
   FieldPortalType field, source;
@@ -197,8 +192,6 @@ public:
                                const int dims[3],
                                const U & field,
                                const U & source,
-                               const V & vertexTable,
-                               const V & triangleTable,
                                const W & vertices,
                                const X & scalars,
                                const V & outputVerticesLocHandle,
@@ -209,8 +202,6 @@ public:
   xmax(1), ymax(1), zmax(1),
   field( field.PrepareForInput( DeviceAdapter() ) ),
   source( source.PrepareForInput( DeviceAdapter() ) ),
-  vertexTable( vertexTable.PrepareForInput( DeviceAdapter() ) ),
-  triangleTable( triangleTable.PrepareForInput( DeviceAdapter() ) ),
   outputVerticesLoc( outputVerticesLocHandle.PrepareForInput( DeviceAdapter() ) ),
   vertices(vertices),
   scalars(scalars),
@@ -278,7 +269,7 @@ public:
       cubeindex += (f[6] > isovalue)*64;
       cubeindex += (f[7] > isovalue)*128;
 
-      const int numVertices  = this->vertexTable.Get(cubeindex);
+      const int numVertices  = numVerticesTable[cubeindex];
       // if(numVertices == 0)
       //   {
       //   continue;
@@ -314,7 +305,7 @@ public:
       // Interpolate for vertex positions and associated scalar values
       for (int v = 0; v < numVertices; v++)
         {
-        const int edge = this->triangleTable.Get(cubeindex*16 + v);
+        const int edge = triTable[cubeindex*16 + v];
         const int v0   = verticesForEdge[2*edge];
         const int v1   = verticesForEdge[2*edge + 1];
         const float t  = (isovalue - f[v0]) / (f[v1] - f[v0]);
@@ -341,22 +332,17 @@ public:
   typedef typename PortalTypes<FieldType>::PortalConst FieldPortalType;
   FieldPortalType pointData;
 
-  typedef typename PortalTypes<vtkm::Id>::PortalConst TablePortalType;
-  TablePortalType vertTable;
-
   float isovalue;
   int xdim, ydim, zdim;
   int cellsPerLayer;
   int pointsPerLayer;
 
-  template<typename T, typename U>
+  template<typename T>
   VTKM_CONT_EXPORT
   ClassifyCellOutputTri(const T& pointHandle,
-               const U& vertTableHandle,
-               float iso,
-               int dims[3]) :
+                        float iso,
+                        int dims[3]) :
          pointData( pointHandle.PrepareForInput( DeviceAdapter() ) ),
-         vertTable( vertTableHandle.PrepareForInput( DeviceAdapter() ) ),
          isovalue( iso ),
          xdim(dims[0]),
          ydim(dims[1]),
@@ -405,7 +391,7 @@ public:
     cubeindex += (f6 > isovalue)*64;
     cubeindex += (f7 > isovalue)*128;
 
-    return CellNumType(this->vertTable.Get(cubeindex) / 3);
+    return CellNumType(numVerticesTable[cubeindex] / 3);
   }
 };
 
@@ -419,9 +405,6 @@ public:
                                 FieldIn<IdType> inputIteration);
   typedef void ExecutionSignature(WorkIndex, _1, _2);
   typedef _1 InputDomain;
-
-  typedef typename PortalTypes< vtkm::Id >::PortalConst IdPortalType;
-  IdPortalType triangleTable, vertexTable;
 
   typedef typename PortalTypes< FieldType >::PortalConst FieldPortalType;
   FieldPortalType field, source;
@@ -437,14 +420,12 @@ public:
 
   const int inputCellIdOffset;
 
-  template<typename U, typename V, typename W, typename X>
+  template<typename U, typename W, typename X>
   VTKM_CONT_EXPORT
   IsosurfaceSingleTri( const float isovalue,
                        const int dims[3],
                        const U & field,
                        const U & source,
-                       const V & vertexTable,
-                       const V & triangleTable,
                        const W & vertices,
                        const X & scalars,
                        const int inputIdOffset=0):
@@ -454,8 +435,6 @@ public:
   xmax(1), ymax(1), zmax(1),
   field( field.PrepareForInput( DeviceAdapter() ) ),
   source( source.PrepareForInput( DeviceAdapter() ) ),
-  vertexTable( vertexTable.PrepareForInput( DeviceAdapter() ) ),
-  triangleTable( triangleTable.PrepareForInput( DeviceAdapter() ) ),
   vertices(vertices),
   scalars(scalars),
   cellsPerLayer((xdim-1) * (ydim-1)),
@@ -514,8 +493,6 @@ public:
     cubeindex += (f[6] > isovalue)*64;
     cubeindex += (f[7] > isovalue)*128;
 
-    const int numVertices  = this->vertexTable.Get(cubeindex);
-
     // Compute the coordinates of the uniform regular grid at each of the cell's eight vertices
     vtkm::Vec<FieldType, 3> p[8];
     p[0] = vtkm::make_Vec(xmin+(xmax-xmin)*(1.0*x/(xdim-1)),     ymin+(ymax-ymin)*(1.0*y/(xdim-1)),     zmin+(zmax-zmin)*(1.0*z/(xdim-1)));
@@ -544,7 +521,7 @@ public:
     const vtkm::Id cellOffset = cubeindex*16 + (inputIteration * 3);
     for (int v = 0; v < 3; v++)
       {
-      const int edge = this->triangleTable.Get( cellOffset + v );
+      const int edge = triTable[cellOffset + v];
       const int v0   = verticesForEdge[2*edge];
       const int v1   = verticesForEdge[2*edge + 1];
       const float t  = (isovalue - f[v0]) / (f[v1] - f[v0]);

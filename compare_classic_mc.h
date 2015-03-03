@@ -30,10 +30,6 @@ static void doMarchingCubes( int vdims[3],
                              vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray,
                              int count)
 {
-  // Set up the Marching Cubes tables
-  vtkm::cont::ArrayHandle<vtkm::Id> vertexTableArray = vtkm::cont::make_ArrayHandle(numVerticesTable, 256);
-  vtkm::cont::ArrayHandle<vtkm::Id> triangleTableArray = vtkm::cont::make_ArrayHandle(triTable, 256*16);
-
   vtkm::cont::ArrayHandle< vtkm::Id > cellHasOutput;
   vtkm::cont::ArrayHandle< vtkm::Id > numOutputVertsPerCell;
 
@@ -43,7 +39,7 @@ static void doMarchingCubes( int vdims[3],
   typedef worklets::FusedClassifyCell< vtkm::Float32, vtkm::Id, vtkm::Id, NumCellsToFuse > CellClassifyFunctor;
   typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
-  CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
+  CellClassifyFunctor cellClassify(field, ISO_VALUE, vdims );
   ClassifyDispatcher classifyCellDispatcher(cellClassify);
   classifyCellDispatcher.Invoke(cellCountImplicitArray, cellHasOutput, numOutputVertsPerCell);
 
@@ -79,8 +75,6 @@ static void doMarchingCubes( int vdims[3],
                                vdims,
                                field,
                                field,
-                               vertexTableArray,
-                               triangleTableArray,
                                verticesArray.PrepareForOutput(numTotalVertices, DeviceAdapter()),
                                scalarsArray.PrepareForOutput(numTotalVertices, DeviceAdapter()),
                                outputVerticesLocArray

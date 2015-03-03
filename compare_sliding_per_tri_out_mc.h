@@ -30,10 +30,6 @@ static void doLayeredMarchingCubes( int vdims[3],
                                    int count,
                                    int numberOfLayers)
 {
-  // Set up the Marching Cubes tables
-  vtkm::cont::ArrayHandle<vtkm::Id> vertexTableArray = vtkm::cont::make_ArrayHandle(numVerticesTable, 256);
-  vtkm::cont::ArrayHandle<vtkm::Id> triangleTableArray = vtkm::cont::make_ArrayHandle(triTable, 256*16);
-
   //setup the vector of outputs
   int cellsInLayer = count/numberOfLayers;
   int remainderCells = count%numberOfLayers;
@@ -53,7 +49,7 @@ static void doLayeredMarchingCubes( int vdims[3],
     typedef worklets::ClassifyCellOutputTri< vtkm::Float32, vtkm::Id > CellClassifyFunctor;
     typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
-    CellClassifyFunctor cellClassify(field, vertexTableArray, ISO_VALUE, vdims );
+    CellClassifyFunctor cellClassify(field, ISO_VALUE, vdims );
     ClassifyDispatcher classifyCellDispatcher(cellClassify);
     classifyCellDispatcher.Invoke(cellCountImplicitArray, numOutputTrisPerCell);
 
@@ -108,8 +104,6 @@ static void doLayeredMarchingCubes( int vdims[3],
                                  vdims,
                                  field,
                                  field,
-                                 vertexTableArray,
-                                 triangleTableArray,
                                  verts.PrepareForOutput(numTotalVertices, DeviceAdapter()),
                                  scalars.PrepareForOutput(numTotalVertices, DeviceAdapter()),
                                  startI
