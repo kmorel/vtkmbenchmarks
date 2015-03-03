@@ -83,15 +83,6 @@ struct MarchingPass1ExecData
     scalarData(metaData.scalarHandle.PrepareForInput(DeviceAdapter())),
     numTriangles(metaData.numTrisPerCell.PrepareForOutput( (metaData.dims[0]-1) * (metaData.dims[1]-1) * (metaData.dims[2]-1), DeviceAdapter() ))
   {
-    std::cout << "MarchingExecData" << std::endl;
-    std::cout << "algo.Dims[0]: " << dims[0] << std::endl;
-    std::cout << "algo.Dims[1]: " << dims[1] << std::endl;
-    std::cout << "algo.Dims[2]: " << dims[2] << std::endl;
-
-    std::cout << "algo.Inc[0]: " << 1 << std::endl;
-    std::cout << "algo.Inc[1]: " << inc1 << std::endl;
-    std::cout << "algo.Inc[2]: " << inc2 << std::endl;
-
   }
 };
 
@@ -123,9 +114,11 @@ public:
   const vtkm::Id cslice = xzid / xcdim;
   const vtkm::Id coffset = cslice * (xcdim * ycdim) + crow;
 
-  const vtkm::Id prow = xzid % this->d.dims[0];
-  const vtkm::Id pslice = xzid / this->d.dims[0];
-  const vtkm::Id poffset = pslice * this->d.inc2 + prow;
+  // const vtkm::Id x = crow;
+  // const vtkm::Id y = 0;
+  // const vtkm::Id z = cslice;
+  const vtkm::Id poffset = (cslice * this->d.inc2) + crow;
+
 
   this->process(poffset, coffset);
   }
@@ -157,9 +150,9 @@ public:
   this->d.numTriangles.Set(writePos, numVerticesTable[cubeindex] / 3 );
 
   //for all cells in this row
-  for (int i=1; i < nycells-1; ++i)
+  for (int i=1; i < nycells; ++i)
     {
-    //update the botoom verts to be the old top verts
+    //update the bottom verts to be the old top verts
     //shape of voxel back face is:
     // 7 6
     // 4 5
@@ -184,7 +177,7 @@ public:
     cubeindex += (f6 > this->d.isovalue)*64;
     cubeindex += (f7 > this->d.isovalue)*128;
 
-    this->d.numTriangles.Set(writePos + (this->d.inc1 * i),  numVerticesTable[cubeindex] / 3 );
+    this->d.numTriangles.Set(writePos + ((this->d.dims[0]-1) * i),  numVerticesTable[cubeindex] / 3 );
     }
   }
 };
