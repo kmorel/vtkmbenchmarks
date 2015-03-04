@@ -496,27 +496,26 @@ public:
     // Compute the coordinates of the uniform regular grid at each of the cell's eight vertices
     vtkm::Vec<FieldType, 3> p[8];
     {
-    //if we have offset and spacing, we can simplify this computation
+    //if we have offset and spacing, can we simplify this computation
     vtkm::Vec<FieldType, 3> offset = vtkm::make_Vec(xmin+(xmax-xmin),
                                                     ymin+(ymax-ymin),
                                                     zmin+(zmax-zmin) );
 
-    vtkm::Vec<FieldType, 3> firstCoord = vtkm::make_Vec(1.0*x/(xdim-1),
-                                                        1.0*y/(xdim-1),
-                                                        1.0*z/(xdim-1) );
+    vtkm::Vec<FieldType, 3> spacing = vtkm::make_Vec( 1.0 /(xdim-1),
+                                                      1.0 /(ydim-1),
+                                                      1.0 /(zdim-1));
 
-    vtkm::Vec<FieldType, 3> secondCoord = vtkm::make_Vec(1.0*(x+1)/(xdim-1),
-                                                         1.0*(y+1)/(xdim-1),
-                                                         1.0*(z+1)/(xdim-1) );
+    vtkm::Vec<FieldType, 3> firstPoint = offset * spacing *  vtkm::make_Vec( x, y, z );
+    vtkm::Vec<FieldType, 3> secondPoint = offset * spacing * vtkm::make_Vec( x+1, y+1, z+1 );
 
-    p[0] = vtkm::make_Vec( offset[0] * firstCoord[0],   offset[1] * firstCoord[1],   offset[2] * firstCoord[2]);
-    p[1] = vtkm::make_Vec( offset[0] * secondCoord[0],  offset[1] * firstCoord[1],   offset[2] * firstCoord[2]);
-    p[2] = vtkm::make_Vec( offset[0] * secondCoord[0],  offset[1] * secondCoord[1],  offset[2] * firstCoord[2]);
-    p[3] = vtkm::make_Vec( offset[0] * firstCoord[0],   offset[1] * secondCoord[1],  offset[2] * firstCoord[2]);
-    p[4] = vtkm::make_Vec( offset[0] * firstCoord[0],   offset[1] * firstCoord[1],   offset[2] * secondCoord[2]);
-    p[5] = vtkm::make_Vec( offset[0] * secondCoord[0],  offset[1] * firstCoord[1],   offset[2] * secondCoord[2]);
-    p[6] = vtkm::make_Vec( offset[0] * secondCoord[0],  offset[1] * secondCoord[1],  offset[2] * secondCoord[2]);
-    p[7] = vtkm::make_Vec( offset[0] * firstCoord[0],   offset[1] * secondCoord[1],  offset[2] * secondCoord[2]);
+    p[0] = vtkm::make_Vec( firstPoint[0],   firstPoint[1],   firstPoint[2]);
+    p[1] = vtkm::make_Vec( secondPoint[0],  firstPoint[1],   firstPoint[2]);
+    p[2] = vtkm::make_Vec( secondPoint[0],  secondPoint[1],  firstPoint[2]);
+    p[3] = vtkm::make_Vec( firstPoint[0],   secondPoint[1],  firstPoint[2]);
+    p[4] = vtkm::make_Vec( firstPoint[0],   firstPoint[1],   secondPoint[2]);
+    p[5] = vtkm::make_Vec( secondPoint[0],  firstPoint[1],   secondPoint[2]);
+    p[6] = vtkm::make_Vec( secondPoint[0],  secondPoint[1],  secondPoint[2]);
+    p[7] = vtkm::make_Vec( firstPoint[0],   secondPoint[1],  secondPoint[2]);
     }
 
     // Get the scalar source values at the eight vertices
