@@ -218,6 +218,15 @@ static void doMarchingCubes( int pdims[3], //point dims
   ProcessCellsYStride yStrideFunctor( execData );
   YDispatcher dispatcher(yStrideFunctor);
   dispatcher.Invoke(passIds);
+
+  //try with pure thrust
+  // worklets::MarchingPass1ExecData<vtkm::Float32> execData( contData );
+  // typedef worklets::ProcessCellsByYAxis< vtkm::Float32 > ProcessCellsYStride;
+  // ProcessCellsYStride yStrideFunctor( execData );
+  // ::thrust::counting_iterator< vtkm::Id > start(0);
+  // ::thrust::counting_iterator< vtkm::Id > end( cdims[0] * cdims[2] );
+  // ::thrust::for_each(start, end, yStrideFunctor);
+
   }
 
   //compute the number of valid input cells and those ids
