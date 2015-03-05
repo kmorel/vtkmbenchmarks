@@ -67,8 +67,8 @@ static void doMarchingCubes( int vdims[3],
                                                                  validCellIndicesArray);
   }
 
-  cellHasOutput.ReleaseResourcesExecution();
-  numOutputVertsPerCell.ReleaseResourcesExecution();
+  cellHasOutput.ReleaseResources();
+  numOutputVertsPerCell.ReleaseResources();
 
   typedef worklets::IsosurfaceFusedUniformGridFunctor<vtkm::Float32, vtkm::Float32, NumCellsToFuse> IsoSurfaceFunctor;
   IsoSurfaceFunctor isosurface(ISO_VALUE,

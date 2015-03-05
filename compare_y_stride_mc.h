@@ -246,7 +246,7 @@ static void doMarchingCubes( int pdims[3], //point dims
                                                                  validCellCountImplicitArray,
                                                                  validCellIndicesArray);
 
-  contData.numTrisPerCell.ReleaseResourcesExecution();
+  contData.numTrisPerCell.ReleaseResources();
 
   //compute for each output triangle what iteration of the input cell
   //generates it

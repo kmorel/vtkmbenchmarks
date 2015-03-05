@@ -78,7 +78,7 @@ static void doLayeredMarchingCubes( int vdims[3],
     //Valid Cell Indices Array
     // 1, 1, 1, 3, 6, 6
 
-    numOutputTrisPerCell.ReleaseResourcesExecution();
+    numOutputTrisPerCell.ReleaseResources();
     //compute for each output triangle what iteration of the input cell
     //generates it
     vtkm::cont::DeviceAdapterAlgorithm<DeviceAdapter>::LowerBounds(validCellIndicesArray,
