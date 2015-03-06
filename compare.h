@@ -147,8 +147,8 @@ int RunComparison(std::string device, std::string file, std::string writeLoc,
     std::cout << "VTKM Marching Edges,Accelerator,Time,Trial" << std::endl;
     me::RunMarchingEdges(dims,buffer,device,NUM_TRIALS);
 
-    // std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
-    // fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS);
+    std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
+    fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS);
 
     if(device == "Serial")
       {

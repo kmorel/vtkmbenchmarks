@@ -40,7 +40,7 @@ namespace worklets
 typedef VTKM_DEFAULT_DEVICE_ADAPTER_TAG DeviceAdapter;
 
 template <typename FieldType>
-struct MarchingEdgeContData
+struct FlyingEdgeContData
 {
   vtkm::cont::ArrayHandle< FieldType > scalarHandle;
   vtkm::cont::ArrayHandle< vtkm::UInt8 > yEdgeCaseHandle;
@@ -58,7 +58,7 @@ struct MarchingEdgeContData
   vtkm::Vec<vtkm::Float32,3> Spacing;
 
   VTKM_CONT_EXPORT
-  MarchingEdgeContData( const vtkm::Vec<vtkm::Float32,3> origin,
+  FlyingEdgeContData( const vtkm::Vec<vtkm::Float32,3> origin,
                       const vtkm::Vec<vtkm::Float32,3> spacing,
                       int p_dims[3],
                       vtkm::cont::ArrayHandle< FieldType > scalarInHandle,
@@ -81,7 +81,7 @@ struct MarchingEdgeContData
 
 //----------------------------------------------------------------------------
 template <typename FieldType>
-struct MarchingEdgePass1ExecData
+struct FlyingEdgePass1ExecData
 {
   typedef typename ::worklets::PortalTypes<FieldType>::PortalConst FieldPortalType;
   typedef typename ::worklets::PortalTypes<vtkm::UInt8>::Portal UInt8PortalType;
@@ -98,7 +98,7 @@ struct MarchingEdgePass1ExecData
   Id3PortalType sums;
 
   explicit
-  MarchingEdgePass1ExecData( MarchingEdgeContData<FieldType>& metaData):
+  FlyingEdgePass1ExecData( FlyingEdgeContData<FieldType>& metaData):
     isovalue(metaData.isovalue),
     dims(metaData.dims[0], metaData.dims[1], metaData.dims[2]),
     inc1(metaData.inc1),
@@ -108,7 +108,7 @@ struct MarchingEdgePass1ExecData
     edgeYCases(metaData.yEdgeCaseHandle.PrepareForOutput( metaData.dims[0] * (metaData.dims[1]-1) * metaData.dims[2], DeviceAdapter() )),
     sums(metaData.sumsHandle.PrepareForOutput(metaData.dims[0] * metaData.dims[2], DeviceAdapter()) )
   {
-    // std::cout << "MarchingEdgeExecData" << std::endl;
+    // std::cout << "FlyingEdgeExecData" << std::endl;
     // std::cout << "algo.Dims[0]: " << dims[0] << std::endl;
     // std::cout << "algo.Dims[1]: " << dims[1] << std::endl;
     // std::cout << "algo.Dims[2]: " << dims[2] << std::endl;
@@ -123,7 +123,7 @@ struct MarchingEdgePass1ExecData
 
 //----------------------------------------------------------------------------
 template <typename FieldType>
-struct MarchingEdgePass2ExecData
+struct FlyingEdgePass2ExecData
 {
   typedef typename ::worklets::PortalTypes<FieldType>::PortalConst FieldPortalType;
   typedef typename ::worklets::PortalTypes<vtkm::UInt8>::PortalConst UInt8ConstPortalType;
@@ -144,7 +144,7 @@ struct MarchingEdgePass2ExecData
   Id3PortalType sums;
 
   explicit
-  MarchingEdgePass2ExecData( MarchingEdgeContData<FieldType>& metaData):
+  FlyingEdgePass2ExecData( FlyingEdgeContData<FieldType>& metaData):
     isovalue(metaData.isovalue),
     dims(metaData.dims[0], metaData.dims[1], metaData.dims[2]),
     inc1(metaData.inc1),
@@ -169,7 +169,7 @@ struct MarchingEdgePass2ExecData
 
 //----------------------------------------------------------------------------
 template <typename FieldType>
-struct MarchingEdgePass3ExecData
+struct FlyingEdgePass3ExecData
 {
   typedef typename ::worklets::PortalTypes<FieldType>::PortalConst FieldPortalType;
   typedef typename ::worklets::PortalTypes<vtkm::UInt8>::PortalConst UInt8ConstPortalType;
@@ -191,7 +191,7 @@ struct MarchingEdgePass3ExecData
   VertexPortalType vertices;
 
   template<typename T, typename U>
-  MarchingEdgePass3ExecData( MarchingEdgeContData<FieldType>& metaData,
+  FlyingEdgePass3ExecData( FlyingEdgeContData<FieldType>& metaData,
                              const T& scalarsPortal,
                              const U& verticesPortal ):
     isovalue(metaData.isovalue),
@@ -224,10 +224,10 @@ public:
   typedef void ExecutionSignature(_1);
   typedef _1 InputDomain;
 
-  MarchingEdgePass1ExecData<FieldType> d;
+  FlyingEdgePass1ExecData<FieldType> d;
 
   VTKM_CONT_EXPORT
-  ProcessYEdges( MarchingEdgePass1ExecData<FieldType>& data) :
+  ProcessYEdges( FlyingEdgePass1ExecData<FieldType>& data) :
          d( data )
    {
    }
@@ -295,10 +295,10 @@ public:
   typedef void ExecutionSignature(_1);
   typedef _1 InputDomain;
 
-  MarchingEdgePass2ExecData<FieldType> d;
+  FlyingEdgePass2ExecData<FieldType> d;
 
   VTKM_CONT_EXPORT
-  ProcessXZEdges( MarchingEdgePass2ExecData<FieldType>& data) :
+  ProcessXZEdges( FlyingEdgePass2ExecData<FieldType>& data) :
          d( data )
    {
    }
@@ -377,10 +377,10 @@ public:
   typedef void ExecutionSignature(_1);
   typedef _1 InputDomain;
 
-  MarchingEdgePass3ExecData<FieldType> d;
+  FlyingEdgePass3ExecData<FieldType> d;
 
   VTKM_CONT_EXPORT
-  GenerateTriangles( MarchingEdgePass3ExecData<FieldType>& data) :
+  GenerateTriangles( FlyingEdgePass3ExecData<FieldType>& data) :
          d( data )
    {
    }
@@ -442,7 +442,7 @@ public:
       //1 is that we have each cell output without removing duplicate edges
       //etc, this means we need to fetch the edge info an interpolate in the
       //for loop
-      //2 we do a proper marching edges and output connectivity in one pass
+      //2 we do a proper Flying edges and output connectivity in one pass
       //and in a second output the actual point locations
       }
     currentTriIncScan += numTris;
@@ -469,7 +469,7 @@ static void doFlyingEdges( int pdims[3], //point dims
   //to pass to worklets
   vtkm::Vec<vtkm::Float32,3> origin(0,0,0);
   vtkm::Vec<vtkm::Float32,3> spacing(1,1,1);
-  worklets::MarchingEdgeContData<vtkm::Float32> contData(origin,
+  worklets::FlyingEdgeContData<vtkm::Float32> contData(origin,
                                                        spacing,
                                                        pdims,
                                                        field,
@@ -479,7 +479,7 @@ static void doFlyingEdges( int pdims[3], //point dims
   // PASS 1: Process a single volume y-row (and all of the voxel edges that
   // compose the row). Determine the y-edges case classification.
   {
-  worklets::MarchingEdgePass1ExecData<vtkm::Float32> execData( contData );
+  worklets::FlyingEdgePass1ExecData<vtkm::Float32> execData( contData );
   //first pass is over edges so use point dims
   vtkm::cont::ArrayHandleCounting<vtkm::Id> passIds(0, pdims[0] * pdims[2]);
 
@@ -495,7 +495,7 @@ static void doFlyingEdges( int pdims[3], //point dims
   // z-intersections by topological reasoning from y-edge cases. Determine the
   // number of primitives (i.e., triangles) generated from this row..
   {
-  worklets::MarchingEdgePass2ExecData<vtkm::Float32> execData( contData );
+  worklets::FlyingEdgePass2ExecData<vtkm::Float32> execData( contData );
   //first pass is over 'cells' so use cell dims
   vtkm::cont::ArrayHandleCounting<vtkm::Id> passIds(0, cdims[0] * cdims[2]);
 
@@ -527,7 +527,7 @@ static void doFlyingEdges( int pdims[3], //point dims
   if(numOutputYTriangles == 0)
     { return; }
 
-  worklets::MarchingEdgePass3ExecData<vtkm::Float32> execData( contData,
+  worklets::FlyingEdgePass3ExecData<vtkm::Float32> execData( contData,
                                                                scalarsArray.PrepareForOutput(numOutputYTriangles*3, DeviceAdapter()),
                                                                verticesArray.PrepareForOutput(numOutputYTriangles*3, DeviceAdapter())
                                                                );
@@ -544,7 +544,7 @@ static void doFlyingEdges( int pdims[3], //point dims
 
 };
 
-static void RunMarchingEdges(int pdims[3],
+static void RunFlyingEdges(int pdims[3],
                            std::vector<vtkm::Float32>& buffer,
                            std::string device,
                            int MAX_NUM_TRIALS,
