@@ -28,21 +28,17 @@ public:
 
   bool parseArguments(int argc, char* argv[]);
 
-  enum PipelineMode
-    {
-    THRESHOLD = 1,
-    MARCHING_CUBES = 2,
-    FLYING_EDGES = 3
-    };
-
-  PipelineMode pipeline() const
-    { return this->Pipeline; }
-
   std::string file() const
     { return this->File; }
 
+  float isovalue() const
+    { return this->IsoValue; }
+
   double ratio() const
     { return this->Ratio; }
+
+  int cores() const
+    { return this->Cores; }
 
   std::string writeLocation() const
     { return this->WriteLocation; }
@@ -50,8 +46,9 @@ public:
 private:
   std::string File;
   std::string WriteLocation;
-  PipelineMode Pipeline;
+  float IsoValue;
   double Ratio;
+  int Cores;
 };
 
 }}

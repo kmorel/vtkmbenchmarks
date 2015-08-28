@@ -17,19 +17,21 @@
 #include "ArgumentsParser.h"
 
 #include <vtkm/testing/OptionParser.h>
+
 #include <iostream>
 #include <sstream>
 #include <string>
 
-enum  optionIndex { UNKNOWN, HELP, FILEPATH, PIPELINE, WRITE_LOC, RESAMPLE_RATIO};
+enum  optionIndex { UNKNOWN, HELP, FILEPATH, WRITE_LOC, ISO_VALUE, CORES, RESAMPLE_RATIO};
 const vtkm::testing::option::Descriptor usage[] =
 {
   {UNKNOWN,   0,"" , ""    ,      vtkm::testing::option::Arg::None, "USAGE: example [options]\n\n"
                                                                     "Options:" },
   {HELP,      0,"h" , "help",    vtkm::testing::option::Arg::None, "  --help, -h  \tPrint usage and exit." },
   {FILEPATH,      0,"", "file",      vtkm::testing::option::Arg::Optional, "  --file  \t nrrd file to read." },
-  {PIPELINE,  0,"", "pipeline",  vtkm::testing::option::Arg::Optional, "  --pipeline  \t What pipeline to run ( 1 threshold, 2 marching cubes)." },
-  {WRITE_LOC,  0,"", "dump",  vtkm::testing::option::Arg::Optional, "  --dump  \t Folder to write ply dumps of the results of each algorithm." },
+  {WRITE_LOC,  0,"", "dump",  vtkm::testing::option::Arg::Optional, "  --dump  \t Folder to write dumps of the results of each algorithm." },
+  {ISO_VALUE,  0,"", "isovalue",  vtkm::testing::option::Arg::Optional, "  --isovalue  \t Value to contour the dataset at." },
+  {CORES,  0,"", "cores",        vtkm::testing::option::Arg::Optional, "  --cores  \t number of cores to use, 0 means all cores, -1 means test with 1 to max cores." },
   {RESAMPLE_RATIO,  0,"", "ratio",  vtkm::testing::option::Arg::Optional, "  --ratio  \t Resample ratio for the input data." },
   {UNKNOWN,   0,"",  "",         vtkm::testing::option::Arg::None, "\nExample:\n"
                                                                    " example --file=./test --pipeline=1\n"},
@@ -41,8 +43,9 @@ const vtkm::testing::option::Descriptor usage[] =
 vtkm::testing::ArgumentsParser::ArgumentsParser():
   File(""),
   WriteLocation(""),
-  Pipeline(MARCHING_CUBES),
-  Ratio(1.0)
+  IsoValue(0.0f),
+  Ratio(1.0),
+  Cores(0)
 {
 }
 
@@ -86,38 +89,25 @@ bool vtkm::testing::ArgumentsParser::parseArguments(int argc, char* argv[])
     argstream >> this->File;
     }
 
-  if ( options[PIPELINE] )
-    {
-    std::string sarg(options[PIPELINE].last()->arg);
-    std::stringstream argstream(sarg);
-    int pipelineflag = 0;
-    argstream >> pipelineflag;
-    if (pipelineflag == THRESHOLD)
-      {
-      this->Pipeline = THRESHOLD;
-      }
-    else if (pipelineflag == MARCHING_CUBES)
-      {
-      this->Pipeline = MARCHING_CUBES;
-      }
-    else if (pipelineflag == FLYING_EDGES)
-      {
-      this->Pipeline = FLYING_EDGES;
-      }
-    else
-      {
-      std::cerr << "Incorrect pipeline choice: " << pipelineflag << std::endl;
-      std::cerr << "Threshold is : " << THRESHOLD  << std::endl;
-      std::cerr << "Marching Cubes is : " << MARCHING_CUBES  << std::endl;
-      std::cerr << "Flying Edges is : " << FLYING_EDGES  << std::endl;
-      }
-    }
-
   if ( options[WRITE_LOC] )
     {
     std::string sarg(options[WRITE_LOC].last()->arg);
     std::stringstream argstream(sarg);
     argstream >> this->WriteLocation;
+    }
+
+  if ( options[ISO_VALUE] )
+    {
+    std::string sarg(options[ISO_VALUE].last()->arg);
+    std::stringstream argstream(sarg);
+    argstream >> this->IsoValue;
+    }
+
+  if ( options[CORES] )
+    {
+    std::string sarg(options[CORES].last()->arg);
+    std::stringstream argstream(sarg);
+    argstream >> this->Cores;
     }
 
   if ( options[RESAMPLE_RATIO] )

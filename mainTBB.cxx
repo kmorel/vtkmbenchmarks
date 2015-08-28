@@ -13,11 +13,11 @@
 //  the U.S. Government retains certain rights in this software.
 //
 //=============================================================================
-#define VTKM_DEVICE_ADAPTER VTKM_DEVICE_ADAPTER_CUDA
-#define BOOST_SP_DISABLE_THREADS
+#define VTKM_DEVICE_ADAPTER VTKM_DEVICE_ADAPTER_TBB
 
 #include "ArgumentsParser.h"
 #include "compare.h"
+#include <tbb/task_scheduler_init.h>
 
 int main(int argc, char* argv[])
   {
@@ -32,7 +32,10 @@ int main(int argc, char* argv[])
 
   const float isoValue = parser.isovalue();
   const double ratio = parser.ratio();
+  const int targetNumCores = parser.cores();
+  int maxNumCores = tbb::task_scheduler_init::default_num_threads();
 
-  RunComparison("Cuda", file, writeLoc, 1, 1, isoValue, ratio);
+  RunComparison("TBB", file, writeLoc, targetNumCores, maxNumCores, isoValue, ratio);
+
   return 0;
 }

@@ -1,26 +1,35 @@
+//=============================================================================
+//
+//  Copyright (c) Kitware, Inc.
+//  All rights reserved.
+//  See LICENSE.txt for details.
+//
+//  This software is distributed WITHOUT ANY WARRANTY; without even
+//  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+//  PURPOSE.  See the above copyright notice for more information.
+//
+//  Copyright 2012 Sandia Corporation.
+//  Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+//  the U.S. Government retains certain rights in this software.
+//
+//=============================================================================
 
-#include <vtkm/cont/DeviceAdapter.h>
-
-#include <vtkm/cont/ArrayHandle.h>
-#include <vtkm/cont/ArrayHandleCounting.h>
-#include <vtkm/cont/DynamicArrayHandle.h>
-#include <vtkm/cont/Timer.h>
-#include <vtkm/Pair.h>
-#include <vtkm/worklet/DispatcherMapField.h>
-#include <vtkm/worklet/WorkletMapField.h>
-
-#include <vtkContourFilter.h>
-#include <vtkFlyingEdges3D.h>
+#include <vtkSynchronizedTemplates3D.h>
 #include <vtkImageData.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 #include <vtkTrivialProducer.h>
 
-#include <vector>
+#include <vtkm/cont/Timer.h>
 
 namespace vtk
 {
-static void RunContourFilter(vtkImageData* image, int MAX_NUM_TRIALS)
+static void RunImageMarchingCubes( vtkImageData* image,
+                                   const std::string& device,
+                                   int numCores,
+                                   int maxNumCores,
+                                   float isoValue,
+                                   int MAX_NUM_TRIALS)
 {
   vtkNew<vtkTrivialProducer> producer;
   producer->SetOutput(image);
@@ -29,55 +38,22 @@ static void RunContourFilter(vtkImageData* image, int MAX_NUM_TRIALS)
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
     {
 
-    vtkNew<vtkContourFilter> marching;
-    marching->SetInputConnection(producer->GetOutputPort());
+    vtkNew<vtkSynchronizedTemplates3D> syncTemplates;
+    syncTemplates->SetInputConnection(producer->GetOutputPort());
 
     vtkm::cont::Timer<> timer;
 
-    marching->ComputeGradientsOff();
-    marching->ComputeNormalsOff();
-    marching->ComputeScalarsOn();
-    marching->SetNumberOfContours(1);
-    marching->SetValue(0, ISO_VALUE);
+    syncTemplates->ComputeGradientsOff();
+    syncTemplates->ComputeNormalsOff();
+    syncTemplates->ComputeScalarsOn();
+    syncTemplates->SetNumberOfContours(1);
+    syncTemplates->SetValue(0, isoValue);
 
-    marching->Update();
-
-    double time = timer.GetElapsedTime();
-    std::cout << "num cells: " << marching->GetOutput()->GetNumberOfCells() << std::endl;
-    std::cout << "VTK Contour,Serial," << time << "," << i << std::endl;
-    }
-}
-
-#ifdef VTK_HAS_FLYING_EDGES
-
-static void RunFlyingEdges(vtkImageData* image, int MAX_NUM_TRIALS)
-{
-  vtkNew<vtkTrivialProducer> producer;
-  producer->SetOutput(image);
-  producer->Update();
-
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-
-    vtkNew<vtkFlyingEdges3D> marching;
-    marching->SetInputConnection(producer->GetOutputPort());
-
-    vtkm::cont::Timer<> timer;
-
-    marching->ComputeGradientsOff();
-    marching->ComputeNormalsOff();
-    marching->ComputeScalarsOn();
-    marching->SetNumberOfContours(1);
-    marching->SetValue(0, ISO_VALUE);
-
-    marching->Update();
+    syncTemplates->Update();
 
     double time = timer.GetElapsedTime();
-    std::cout << "num cells: " << marching->GetOutput()->GetNumberOfCells() << std::endl;
-    std::cout << "VTK Flying Edges,Serial," << time << "," << i << std::endl;
+    std::cout << "vtkSynchronizedTemplates3D," << device << "," <<  numCores << "," << time << "," << i << std::endl;
     }
 }
-
-#endif
 
 }

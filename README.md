@@ -32,17 +32,23 @@ cmake-gui ../vtkm
 
 ## How To Use Benchmarks ##
 
-Each program has 4 arguments:
+Each program will run the iso contour algorithm multiples times on the given input data
+
+Each program has 3 arguments:
 +  file - the nrrd file to read
-+  pipeline - 1 for threshold or 2 for marching cubes
-+  dump - directory to dump output ply files for verification
++  isovalue - the iso value to run the algorithms at
 +  ratio - scale factor to apply to the dataset
++  cores - number of cores to use.
++    0 - means all cores
++   -1 - means iterate from 1 to N cores for the iso contouring algorithm to test scaling tests. Only makes sense for the TBB backend.
 
 Example
 ```
-./BenchmarkCuda --file=./data.nhdr --pipeline=2 --ratio=1.5
+./Benchmark --file=./data.nhdr --ratio=1.5
+./Benchmark --file=./data.nhdr --isovalue=0.7 --cores=-1 --ratio=1.5
 
 ```
+
 
 ## License ##
 ```

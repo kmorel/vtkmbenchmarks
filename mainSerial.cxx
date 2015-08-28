@@ -13,7 +13,6 @@
 //  the U.S. Government retains certain rights in this software.
 //
 //=============================================================================
-
 #define VTKM_DEVICE_ADAPTER VTKM_DEVICE_ADAPTER_SERIAL
 
 #include "ArgumentsParser.h"
@@ -30,9 +29,10 @@ int main(int argc, char* argv[])
   const std::string file = parser.file();
   const std::string writeLoc = parser.writeLocation();
 
-  const int pipeline = parser.pipeline();
+  const float isoValue = parser.isovalue();
   const double ratio = parser.ratio();
 
-  RunComparison("Serial", file, writeLoc, pipeline, ratio);
+  RunComparison("Serial", file, writeLoc, 1, 1, isoValue, ratio);
+
   return 0;
 }
