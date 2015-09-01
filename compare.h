@@ -83,7 +83,7 @@ int RunComparison(std::string device,
   int dims[3]; image->GetDimensions(dims);
   std::cout << "data dims are: " << dims[0] << ", " << dims[1] << ", " << dims[2] << std::endl;
 
-  std::cout << "vtkImageMarchingCubes,Accelerator,Cores,Time,Trial" << std::endl;
+  std::cout << "vtkSynchronizedTemplates3D,Accelerator,Cores,Time,Trial" << std::endl;
   {
   const int singleCore = 1;
   vtk::RunImageMarchingCubes(image, device,

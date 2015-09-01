@@ -55,11 +55,11 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
   dataSet.AddCoordinateSystem(
           vtkm::cont::CoordinateSystem("coordinates", 1, coordinates));
 
-  vtkm::cont::ArrayHandle<vtkm::Float32> field;
+  vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
+  dataSet.AddField(vtkm::cont::Field("nodevar", 1, vtkm::cont::Field::ASSOC_POINTS, field));
+
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
     {
-    field = vtkm::cont::make_ArrayHandle(buffer);
-
     vtkm::cont::ArrayHandle< vtkm::Float32 > scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
 
