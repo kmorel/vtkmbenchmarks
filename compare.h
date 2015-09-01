@@ -12,7 +12,7 @@ static const float ISO_VALUE=0.07;
 #include "compare_sliding_mc.h"
 #include "compare_sliding_per_tri_out_mc.h"
 #include "compare_y_stride_mc.h"
-#include "compare_vtk_mc.h"
+// #include "compare_vtk_mc.h"
 
 
 //flying edge algorithms
@@ -99,64 +99,46 @@ int RunComparison(std::string device, std::string file, std::string writeLoc,
   {
     std::cout << "Benchmarking Marching Cubes" << std::endl;
 
-    std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
-    //Run the basic marching cubes which classifies 1 cell at a time
-    //and than writes out all geometry for each input cell at a time
-    try{ mc::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+    // std::cout << "VTKM Classic,Accelerator,Time,Trial" << std::endl;
+    // //Run the basic marching cubes which classifies 1 cell at a time
+    // //and than writes out all geometry for each input cell at a time
+    // try{ mc::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
-    std::cout << "VTKM Fused Classic,Accelerator,Time,Trial" << std::endl;
-    //Run the basic marching cubes which classifies 1/2/3/4 cells at a time
-    //and than writes out all geometry for those combined cells at the same time
-    try{ mc::RunFusedMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+    // std::cout << "VTKM Fused Classic,Accelerator,Time,Trial" << std::endl;
+    // //Run the basic marching cubes which classifies 1/2/3/4 cells at a time
+    // //and than writes out all geometry for those combined cells at the same time
+    // try{ mc::RunFusedMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
     std::cout << "VTKM Per Tri Output,Accelerator,Time,Trial" << std::endl;
     //Run the basic marching cubes which classifies 1 cell at a time
     //and than generate the geometry on a per output triangle basis, so we
     //have coalesced writes.
-    try{ per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+    per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS);
 
-    std::cout << "VTKM Sliding Window,Accelerator,Time,Trial" << std::endl;
-    //Run the a sliding window marching cubes which classifies 1 cell at a time
-    //the sliding window is along the Z axis, and allows us to generate a subset
-    //of the triangle at a time, but requires all the input data to be uploaded.
-    //The primary benifit of this approach is a reduction of memory, since the
-    //number of cells we are walking is smaller
-    try{ slide::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+    // std::cout << "VTKM Sliding Window,Accelerator,Time,Trial" << std::endl;
+    // //Run the a sliding window marching cubes which classifies 1 cell at a time
+    // //the sliding window is along the Z axis, and allows us to generate a subset
+    // //of the triangle at a time, but requires all the input data to be uploaded.
+    // //The primary benifit of this approach is a reduction of memory, since the
+    // //number of cells we are walking is smaller
+    // try{ slide::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
-    std::cout << "VTKM Sliding Per Tri Output,Accelerator,Time,Trial" << std::endl;
-    // Currently Combines the per tri output and the sliding window.
-    // In future will need to add histo pyramid for a super fast, super low mem version
-    try{  sliding_per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+    // std::cout << "VTKM Sliding Per Tri Output,Accelerator,Time,Trial" << std::endl;
+    // // Currently Combines the per tri output and the sliding window.
+    // // In future will need to add histo pyramid for a super fast, super low mem version
+    // try{  sliding_per_tri::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
 
-    std::cout << "VTKM Y Stride Output,Accelerator,Time,Trial" << std::endl;
-    // Currently Combines the per tri output and the sliding window.
-    // In future will need to add histo pyramid for a super fast, super low mem version
-    try{  y_stride::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
+    // std::cout << "VTKM Y Stride Output,Accelerator,Time,Trial" << std::endl;
+    // // Currently Combines the per tri output and the sliding window.
+    // // In future will need to add histo pyramid for a super fast, super low mem version
+    // try{  y_stride::RunMarchingCubes(dims,buffer,device,writeLoc,NUM_TRIALS); } catch(...) {}
 
-    if(device == "Serial")
-      {
-      std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
-      vtk::RunContourFilter(image,NUM_TRIALS);
-      }
-    }
-  else if(pipeline == 3) //flying edges
-  {
-    std::cout << "Benchmarking Flying/Marching Edges" << std::endl;
-
-    std::cout << "VTKM Marching Edges,Accelerator,Time,Trial" << std::endl;
-    me::RunMarchingEdges(dims,buffer,device,NUM_TRIALS);
-
-    // std::cout << "VTKM Flying Edges,Accelerator,Time,Trial" << std::endl;
-    // fe::RunFlyingEdges(dims,buffer,device,NUM_TRIALS);
-
-    if(device == "Serial")
-      {
-#ifdef VTK_HAS_FLYING_EDGES
-      std::cout << "VTK Flying Edges Filter,Accelerator,Time,Trial" << std::endl;
-      vtk::RunFlyingEdges(image,NUM_TRIALS);
-#endif
-      }
+    // if(device == "Serial")
+    //   {
+    //   std::cout << "VTK Contour Filter,Accelerator,Time,Trial" << std::endl;
+    //   vtk::RunContourFilter(image,NUM_TRIALS);
+    //   }
   }
 
   return 0;

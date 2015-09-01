@@ -36,6 +36,7 @@ static void doMarchingCubes( int vdims[3],
   typedef worklets::ClassifyCellOutputTri< vtkm::Float32, vtkm::Id > CellClassifyFunctor;
   typedef vtkm::worklet::DispatcherMapField< CellClassifyFunctor > ClassifyDispatcher;
 
+
   CellClassifyFunctor cellClassify(field, ISO_VALUE, vdims );
   ClassifyDispatcher classifyCellDispatcher(cellClassify);
   classifyCellDispatcher.Invoke(cellCountImplicitArray, numOutputTrisPerCell);

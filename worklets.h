@@ -325,7 +325,7 @@ template <typename FieldType, typename CellNumType>
 class ClassifyCellOutputTri : public vtkm::worklet::WorkletMapField
 {
 public:
-  typedef void ControlSignature(FieldIn<IdType> inputCellId, FieldOut<AllTypes> numCellsOut);
+  typedef void ControlSignature(FieldIn<IdType>, FieldOut<AllTypes>);
   typedef _2 ExecutionSignature(_1);
   typedef _1 InputDomain;
 
