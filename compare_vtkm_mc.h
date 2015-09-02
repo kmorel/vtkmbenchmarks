@@ -42,18 +42,20 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
   int dims[3];
   image->GetDimensions(dims);
 
-  const vtkm::Id3 vtkmDims(dims[0], dims[1], dims[2]);
+  const vtkm::Id3 pointDims(dims[0], dims[1], dims[2]);
+  const vtkm::Id3 cellDims(dims[0]-1, dims[1]-1, dims[2]-1);
 
-  vtkm::cont::ArrayHandleUniformPointCoordinates coordinates(vtkmDims);
+  vtkm::cont::ArrayHandleUniformPointCoordinates coordinates(pointDims);
 
   vtkm::cont::CellSetStructured<3> cellSet("cells");
-  cellSet.SetPointDimensions(vtkmDims);
+  cellSet.SetPointDimensions(pointDims);
 
   vtkm::cont::DataSet dataSet;
 
   dataSet.AddCellSet(cellSet);
   dataSet.AddCoordinateSystem(
           vtkm::cont::CoordinateSystem("coordinates", 1, coordinates));
+
 
   vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
   dataSet.AddField(vtkm::cont::Field("nodevar", 1, vtkm::cont::Field::ASSOC_POINTS, field));
@@ -66,10 +68,10 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
     vtkm::cont::Timer<> timer;
 
     vtkm::worklet::IsosurfaceFilterUniformGrid<vtkm::Float32,
-                                               DeviceAdapter> isosurfaceFilter(vtkmDims, dataSet);
+                                               DeviceAdapter> isosurfaceFilter(cellDims, dataSet);
 
     isosurfaceFilter.Run(isoValue,
-                         dataSet.GetField("nodevar").GetData(),
+                         field,
                          verticesArray,
                          scalarsArray);
     std::cout << "num cells: " << ( verticesArray.GetNumberOfValues() / 3 ) << std::endl;
