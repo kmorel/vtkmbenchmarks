@@ -14,7 +14,7 @@
 //
 //=============================================================================
 
-#include <vtkSynchronizedTemplates3D.h>
+#include <vtkMarchingCubes.h>
 #include <vtkImageData.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -38,13 +38,13 @@ static void RunImageMarchingCubes( vtkImageData* image,
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
     {
 
-    vtkNew<vtkSynchronizedTemplates3D> syncTemplates;
+    vtkNew<vtkMarchingCubes> syncTemplates;
     syncTemplates->SetInputConnection(producer->GetOutputPort());
 
     vtkm::cont::Timer<> timer;
 
     syncTemplates->ComputeGradientsOff();
-    syncTemplates->ComputeNormalsOff();
+    syncTemplates->ComputeNormalsOn();
     syncTemplates->ComputeScalarsOn();
     syncTemplates->SetNumberOfContours(1);
     syncTemplates->SetValue(0, isoValue);
@@ -52,7 +52,7 @@ static void RunImageMarchingCubes( vtkImageData* image,
     syncTemplates->Update();
 
     double time = timer.GetElapsedTime();
-    std::cout << "vtkSynchronizedTemplates3D," << device << "," <<  numCores << "," << time << "," << i << std::endl;
+    std::cout << "vtkMarchingCubes," << device << "," <<  numCores << "," << time << "," << i << std::endl;
     }
 }
 

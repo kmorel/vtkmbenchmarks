@@ -64,6 +64,7 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
     {
     vtkm::cont::ArrayHandle< vtkm::Float32 > scalarsArray;
     vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
+    vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > normalsArray;
 
     vtkm::cont::Timer<> timer;
 
@@ -73,6 +74,7 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
     isosurfaceFilter.Run(isoValue,
                          field,
                          verticesArray,
+                         normalsArray,
                          scalarsArray);
     std::cout << "num cells: " << ( verticesArray.GetNumberOfValues() / 3 ) << std::endl;
     double time = timer.GetElapsedTime();
