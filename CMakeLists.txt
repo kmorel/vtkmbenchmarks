@@ -25,6 +25,17 @@ find_package(VTK 6.2
 
 include(${VTK_USE_FILE})
 
+option(ENABLE_PISTON "Benchmark piston comparison" OFF)
+if(${ENABLE_PISTON})
+ find_path( PISTON_INCLUDE
+    NAMES piston/piston_math.h
+    DOC "Piston headers"
+    )
+ include_directories(${PISTON_INCLUDE})
+ add_definitions("-DPISTON_ENABLED")
+endif()
+
+
 set(headers
   compare.h
   compare_vtk_mc.h
@@ -55,6 +66,8 @@ target_link_libraries(BenchmarkSerial
   vtkIOLegacy
   )
 
+set_target_properties(BenchmarkSerial PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP")
+
 
 #Add TBB version
 add_executable(BenchmarkTBB
@@ -76,6 +89,8 @@ target_link_libraries(BenchmarkTBB
   ${TBB_LIBRARIES}
   )
 
+set_target_properties(BenchmarkTBB PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB")
+
 #Add CUDA version
 cuda_add_executable(BenchmarkCuda
   ${srcs}
@@ -94,4 +109,6 @@ target_link_libraries(BenchmarkCuda
   vtkIOImage
   vtkIOLegacy
   )
+
+set_target_properties(BenchmarkCuda PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA")
 

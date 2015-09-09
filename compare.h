@@ -17,6 +17,9 @@
 //marching cubes algorithms
 #include "compare_vtkm_mc.h"
 #include "compare_vtk_mc.h"
+#ifdef PISTON_ENABLED
+#include "compare_piston_mc.h"
+#endif
 
 #include "saveAsPly.h"
 
@@ -94,6 +97,12 @@ int RunComparison(std::string device,
   {
   vtkm::RunIsoSurfaceUniformGrid(buffer, image, device,
                                  targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
+  }
+
+  std::cout << "pistonMarchingCubes,Accelerator,Cores,Time,Trial" << std::endl;
+  {
+  piston::RunIsoSurfaceUniformGrid(buffer, image, device,
+                                   targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
   }
   return 0;
 }

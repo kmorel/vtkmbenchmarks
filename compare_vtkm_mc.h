@@ -76,7 +76,7 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
                          verticesArray,
                          normalsArray,
                          scalarsArray);
-    std::cout << "num cells: " << ( verticesArray.GetNumberOfValues() / 3 ) << std::endl;
+
     double time = timer.GetElapsedTime();
     std::cout << "vtkm::worklet::IsosurfaceFilterUniformGrid," << device << "," <<  numCores << "," << time << "," << i << std::endl;
     }
