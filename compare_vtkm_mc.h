@@ -26,6 +26,8 @@
 
 #include <vector>
 
+#include "Stats.h"
+
 namespace vtkm
 {
 static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
@@ -60,26 +62,43 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
   vtkm::cont::ArrayHandle<vtkm::Float32> field = vtkm::cont::make_ArrayHandle(buffer);
   dataSet.AddField(vtkm::cont::Field("nodevar", 1, vtkm::cont::Field::ASSOC_POINTS, field));
 
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-    vtkm::cont::ArrayHandle< vtkm::Float32 > scalarsArray;
-    vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
-    vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > normalsArray;
+  vtkm::cont::ArrayHandle< vtkm::Float32 > scalarsArray;
+  vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > verticesArray;
+  vtkm::cont::ArrayHandle< vtkm::Vec<vtkm::Float32,3> > normalsArray;
 
-    vtkm::cont::Timer<> timer;
-
-    vtkm::worklet::IsosurfaceFilterUniformGrid<vtkm::Float32,
+  vtkm::worklet::IsosurfaceFilterUniformGrid<vtkm::Float32,
                                                DeviceAdapter> isosurfaceFilter(cellDims, dataSet);
 
+  vtkm::cont::Timer<> timer;
+  std::vector<double> samples;
+  samples.reserve(MAX_NUM_TRIALS);
+  timer.Reset();
+
+  for(int i=0; i<MAX_NUM_TRIALS; ++i)
+  {
     isosurfaceFilter.Run(isoValue,
                          field,
                          verticesArray,
                          normalsArray,
                          scalarsArray);
 
-    double time = timer.GetElapsedTime();
-    std::cout << "vtkm::worklet::IsosurfaceFilterUniformGrid," << device << "," <<  numCores << "," << time << "," << i << std::endl;
-    }
+    std::cout << isoValue << " " << verticesArray.GetNumberOfValues() << std::endl;
+    isoValue += 0.005f;
+  }
+
+  samples.push_back(timer.GetElapsedTime());
+
+  std::sort(samples.begin(), samples.end());
+  stats::Winsorize(samples, 5.0);
+  std::cout << "Benchmark \'VTK-m Isosurface\' results:\n"
+        << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
+        << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
+        << "\tmean = " << stats::Mean(samples) << "s\n"
+        << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
+        << "\tmin = " << samples.front() << "s\n"
+        << "\tmax = " << samples.back() << "s\n"
+        << "\t# of runs = " << samples.size() << "\n";
+
 
 }
 

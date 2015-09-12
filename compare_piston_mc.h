@@ -17,6 +17,8 @@
 #include <piston/marching_cube.h>
 #include <piston/image3d.h>
 
+#include "Stats.h"
+
 namespace piston
 {
 
@@ -56,18 +58,39 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
 
   typedef piston::marching_cube< piston_scalar_image3d,
                                  piston_scalar_image3d > MC;
+  
+  piston_scalar_image3d pimage(dims[0],dims[1],dims[2],buffer);
+  MC marching(pimage,pimage,isoValue);
+
+  vtkm::cont::Timer<> timer;
+  std::vector<double> samples;
+  samples.reserve(MAX_NUM_TRIALS);
+  timer.Reset();
+
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-    vtkm::cont::Timer<> timer;
-
-    piston_scalar_image3d pimage(dims[0],dims[1],dims[2],buffer);
-    MC marching(pimage,pimage,isoValue);
-
+  {
+    //piston_scalar_image3d pimage(dims[0],dims[1],dims[2],buffer);
+    //MC marching(pimage,pimage,isoValue);
+    marching.set_isovalue(isoValue);
     marching();
 
-    double time = timer.GetElapsedTime();
-    std::cout << "piston::marching_cube," << device << "," <<  numCores << "," << time << "," << i << std::endl;
-    }
+    std::cout << isoValue << " " << marching.num_total_vertices << std::endl;
+    isoValue += 0.005;
+  }
+
+  samples.push_back(timer.GetElapsedTime());
+
+  std::sort(samples.begin(), samples.end());
+  stats::Winsorize(samples, 5.0);
+  std::cout << "Benchmark \'Piston Isosurface\' results:\n"
+        << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
+        << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
+        << "\tmean = " << stats::Mean(samples) << "s\n"
+        << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
+        << "\tmin = " << samples.front() << "s\n"
+        << "\tmax = " << samples.back() << "s\n"
+        << "\t# of runs = " << samples.size() << "\n";
+
 }
 
 }

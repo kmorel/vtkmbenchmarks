@@ -35,25 +35,43 @@ static void RunImageMarchingCubes( vtkImageData* image,
   producer->SetOutput(image);
   producer->Update();
 
+  vtkm::cont::Timer<> timer;
+  std::vector<double> samples;
+  samples.reserve(MAX_NUM_TRIALS);
+  timer.Reset();
+
+  vtkNew<vtkMarchingCubes> syncTemplates;
+  syncTemplates->SetInputConnection(producer->GetOutputPort());
+
+  syncTemplates->ComputeGradientsOff();
+  syncTemplates->ComputeNormalsOn();
+  syncTemplates->ComputeScalarsOff();
+  syncTemplates->SetNumberOfContours(1);
+    
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
-    {
-
-    vtkNew<vtkMarchingCubes> syncTemplates;
-    syncTemplates->SetInputConnection(producer->GetOutputPort());
-
-    vtkm::cont::Timer<> timer;
-
-    syncTemplates->ComputeGradientsOff();
-    syncTemplates->ComputeNormalsOn();
-    syncTemplates->ComputeScalarsOn();
-    syncTemplates->SetNumberOfContours(1);
+  {
     syncTemplates->SetValue(0, isoValue);
-
     syncTemplates->Update();
 
-    double time = timer.GetElapsedTime();
-    std::cout << "vtkMarchingCubes," << device << "," <<  numCores << "," << time << "," << i << std::endl;
-    }
+    vtkPolyData* output = syncTemplates->GetOutput();
+    std::cout << (syncTemplates->GetValue(0)) << " " << output->GetNumberOfPoints() << std::endl;
+
+    isoValue += 0.005f;
+  }
+
+  samples.push_back(timer.GetElapsedTime());
+
+  std::sort(samples.begin(), samples.end());
+  stats::Winsorize(samples, 5.0);
+  std::cout << "Benchmark \'VTK Isosurface\' results:\n"
+        << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
+        << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
+        << "\tmean = " << stats::Mean(samples) << "s\n"
+        << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
+        << "\tmin = " << samples.front() << "s\n"
+        << "\tmax = " << samples.back() << "s\n"
+        << "\t# of runs = " << samples.size() << "\n";
+
 }
 
 }
