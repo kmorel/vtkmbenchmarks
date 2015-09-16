@@ -18,10 +18,13 @@
 // All satellite processes send the result to the first process which
 // collects and renders them.
 
+#define ISOALGO vtkMarchingCubes
+
 #include "vtkActor.h"
 #include "vtkAppendPolyData.h"
 #include "vtkCamera.h"
 #include "vtkConeSource.h"
+#include "vtkMarchingCubes.h"
 #include "vtkContourFilter.h"
 #include "vtkDataSet.h"
 #include "vtkElevationFilter.h"
@@ -64,7 +67,7 @@ struct ParallelIsoArgs_tmp
 
 struct ParallelIsoRMIArgs_tmp
 {
-  vtkContourFilter* ContourFilter;
+  ISOALGO* ContourFilter;
   vtkMultiProcessController* Controller;
   vtkElevationFilter* Elevation;
 };
@@ -77,16 +80,18 @@ void SetIsoValueRMI(void *localArg, void* vtkNotUsed(remoteArg),
 
   float val;
 
-  vtkContourFilter *iso = args->ContourFilter;
+  ISOALGO *iso = args->ContourFilter;
   val = iso->GetValue(0);
   iso->SetValue(0, val + ISO_STEP);
   args->Elevation->Update();
 
   vtkPolyData* output = iso->GetOutput();
-  std::cout << (iso->GetValue(0)) << " " << output->GetNumberOfPoints() << std::endl;
+  int numPoints[1];
+  numPoints[0] = output->GetNumberOfPoints();
+  std::cout << (iso->GetValue(0)) << " " << numPoints[0] << std::endl;
 
   vtkMultiProcessController* contrl = args->Controller;
-  contrl->Send(args->Elevation->GetOutput(), 0, ISO_OUTPUT_TAG);
+  contrl->Send(/*args->Elevation->GetOutput()*/numPoints, 1, 0, ISO_OUTPUT_TAG);
 }
 
 
@@ -94,7 +99,7 @@ void SetIsoValueRMI(void *localArg, void* vtkNotUsed(remoteArg),
 void MyMain( vtkMultiProcessController *controller, void *arg )
 {
   vtkPNrrdReader *reader;
-  vtkContourFilter *iso;
+  ISOALGO *iso;
   vtkElevationFilter *elev;
   int myid, numProcs;
   float val;
@@ -122,7 +127,7 @@ void MyMain( vtkMultiProcessController *controller, void *arg )
   reader->Update();
 
   // Iso-surface.
-  iso = vtkContourFilter::New();
+  iso = ISOALGO::New();
   iso->SetInputConnection(reader->GetOutputPort());
   iso->SetValue(0, ISO_START);
   iso->ComputeScalarsOff();
@@ -158,8 +163,8 @@ void MyMain( vtkMultiProcessController *controller, void *arg )
   else
     {
     // Create the rendering part of the pipeline
-    vtkAppendPolyData *app = vtkAppendPolyData::New();
-    /*vtkRenderer *ren = vtkRenderer::New();
+    /*vtkAppendPolyData *app = vtkAppendPolyData::New();
+    vtkRenderer *ren = vtkRenderer::New();
     vtkRenderWindow *renWindow = vtkRenderWindow::New();
     vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
     vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
@@ -178,7 +183,9 @@ void MyMain( vtkMultiProcessController *controller, void *arg )
     cam->SetViewAngle(30);
     cam->SetClippingRange(177.0, 536.0);
     ren->SetActiveCamera(cam);*/
-timer.Reset();
+
+    timer.Reset();
+    
     // loop through some iso surface values.
     for (int j = 0; j < ISO_NUM; ++j)
       {
@@ -186,8 +193,8 @@ timer.Reset();
       iso->SetValue(0, iso->GetValue(0) + ISO_STEP);
       elev->Update();
 
-vtkPolyData* output = iso->GetOutput();
-std::cout << (iso->GetValue(0)) << " " << output->GetNumberOfPoints() << std::endl;
+      vtkPolyData* output = iso->GetOutput();
+      std::cout << (iso->GetValue(0)) << " " << output->GetNumberOfPoints() << std::endl;
 
       for (int i = 1; i < numProcs; ++i)
         {
@@ -196,21 +203,22 @@ std::cout << (iso->GetValue(0)) << " " << output->GetNumberOfPoints() << std::en
         }
       for (int i = 1; i < numProcs; ++i)
         {
-        vtkPolyData* pd = vtkPolyData::New();
-        controller->Receive(pd, i, ISO_OUTPUT_TAG);
-        if (j == ISO_NUM - 1)
+        int sync; //vtkPolyData* pd = vtkPolyData::New();
+        controller->Receive(&sync/*pd*/, 1, i, ISO_OUTPUT_TAG);
+        /*if (j == ISO_NUM - 1)
           {
           app->AddInputData(pd);
           }
-        pd->Delete();
+        pd->Delete();*/
         }
-      }
+      }  
 
     // Tell the other processors to stop processing RMIs.
     for (int i = 1; i < numProcs; ++i)
       {
       controller->TriggerRMI(i, vtkMultiProcessController::BREAK_RMI_TAG);
       }
+    
 
     /*vtkPolyData* outputCopy = vtkPolyData::New();
     outputCopy->ShallowCopy(elev->GetOutput());
