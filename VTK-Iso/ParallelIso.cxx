@@ -12,8 +12,8 @@
 
 #include "vtkNew.h"
 #include "vtkImageData.h"
-#include "vtkContourFilter.h"
 #include "vtkMarchingCubes.h"
+#include "vtkContourFilter.h"
 #include "vtkProcessIdScalars.h"
 #include "vtkPolyData.h"
 #include "vtkPolyDataMapper.h"
@@ -63,7 +63,11 @@ void process(vtkMultiProcessController* controller, void* vtkNotUsed(arg))
     std::string file = "/home/csewell/CGABenchmarks/data/normal_1349.nhdr";
     reader->SetFileName(file.c_str());
 
-    vtkNew<vtkImageResample> resample;
+    reader->UpdateInformation();
+    reader->SetUpdateExtent(controller->GetLocalProcessId(),
+       controller->GetNumberOfProcesses(), 0 );
+
+    /*vtkNew<vtkImageResample> resample;
     double resampleSize = 1.0f;
     resample->SetInputConnection(reader->GetOutputPort());
     resample->SetAxisMagnificationFactor(0,resampleSize);
@@ -73,7 +77,10 @@ void process(vtkMultiProcessController* controller, void* vtkNotUsed(arg))
     resample->SetUpdateExtent(controller->GetLocalProcessId(),
        controller->GetNumberOfProcesses(), 0 );
 
-    resample->Update();
+    resample->Update();*/
+
+    reader->Update();
+
 #else
     vtkNew<vtkTangle> tangle;
 
@@ -98,7 +105,7 @@ void process(vtkMultiProcessController* controller, void* vtkNotUsed(arg))
     vtkNew<vtkMarchingCubes> isosurface;
    
 #ifdef SUPERNOVA
-    isosurface->SetInputData(resample->GetOutput());
+    isosurface->SetInputData(reader->GetOutput());
     isosurface->SetValue(0, ISO_START);
 #else
     isosurface->SetInputData(sampler->GetOutput());
