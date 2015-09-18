@@ -47,17 +47,18 @@ ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleS
   reader->Update();
 
   //re-sample the dataset
-  vtkNew<vtkImageResample> resample;
+  /*vtkNew<vtkImageResample> resample;
   resample->SetInputConnection(reader->GetOutputPort());
   resample->SetAxisMagnificationFactor(0,resampleSize);
   resample->SetAxisMagnificationFactor(1,resampleSize);
   resample->SetAxisMagnificationFactor(2,resampleSize);
 
-  resample->Update();
+  resample->Update();*/
+reader->Update();
 
   //take ref
   vtkSmartPointer<vtkImageData> image = vtkSmartPointer<vtkImageData>::New();
-  vtkImageData *newImageData = vtkImageData::SafeDownCast(resample->GetOutputDataObject(0));
+  vtkImageData *newImageData = vtkImageData::SafeDownCast(reader->GetOutputDataObject(0)); //resample->GetOutputDataObject(0));
   image.TakeReference( newImageData );
   image->Register(NULL);
 
