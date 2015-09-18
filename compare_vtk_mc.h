@@ -19,6 +19,7 @@
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 #include <vtkTrivialProducer.h>
+#include <vtkNonMergingPointLocator.h>
 
 #include <vtkm/cont/Timer.h>
 
@@ -38,15 +39,19 @@ static void RunImageMarchingCubes( vtkImageData* image,
   vtkm::cont::Timer<> timer;
   std::vector<double> samples;
   samples.reserve(MAX_NUM_TRIALS);
-  timer.Reset();
 
   vtkNew<vtkMarchingCubes> syncTemplates;
   syncTemplates->SetInputConnection(producer->GetOutputPort());
+
+  vtkNonMergingPointLocator* simpleLocator = vtkNonMergingPointLocator::New();
+  syncTemplates->SetLocator(simpleLocator);
 
   syncTemplates->ComputeGradientsOff();
   syncTemplates->ComputeNormalsOn();
   syncTemplates->ComputeScalarsOff();
   syncTemplates->SetNumberOfContours(1);
+
+  timer.Reset();
     
   for(int i=0; i < MAX_NUM_TRIALS; ++i)
   {

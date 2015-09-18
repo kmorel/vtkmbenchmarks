@@ -1,319 +1,221 @@
-/*=========================================================================
+/*
+ * PVTKDemo.cpp
+ *
+ *  Created on: Aug 12, 2013
+ *      Author: ollie
+ */
 
-  Program:   Visualization Toolkit
-  Module:    ParallelIso.cxx
+#define SUPERNOVA
 
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+#include <vector>
+#include <cmath>
 
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
-// This example demonstrates the use of data parallelism in VTK. The
-// pipeline ( vtkImageReader -> vtkContourFilter -> vtkElevationFilter )
-// is created in parallel and each process is assigned 1 piece to process.
-// All satellite processes send the result to the first process which
-// collects and renders them.
-
-#define ISOALGO vtkMarchingCubes
-
-#include "vtkActor.h"
-#include "vtkAppendPolyData.h"
-#include "vtkCamera.h"
-#include "vtkConeSource.h"
-#include "vtkMarchingCubes.h"
+#include "vtkNew.h"
+#include "vtkImageData.h"
 #include "vtkContourFilter.h"
-#include "vtkDataSet.h"
-#include "vtkElevationFilter.h"
-#include "vtkPNrrdReader.h"
-#include "vtkMath.h"
-#include "vtkMPIController.h"
+#include "vtkMarchingCubes.h"
+#include "vtkProcessIdScalars.h"
 #include "vtkPolyData.h"
 #include "vtkPolyDataMapper.h"
-#include "vtkTestUtilities.h"
-#include "vtkRegressionTestImage.h"
+#include "vtkActor.h"
+#include "vtkCamera.h"
+#include "vtkRenderer.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkRenderer.h"
-#include "vtkWindowToImageFilter.h"
-#include "vtkImageData.h"
-#include "vtkStreamingDemandDrivenPipeline.h"
-#include "vtkInformation.h"
+#include "vtkCompositeRenderManager.h"
+#include "vtkTimerLog.h"
 
-#include "vtkDebugLeaks.h"
+#include "vtkMPIController.h"
 
-#include <mpi.h>
+#include "vtkNonMergingPointLocator.h"
+
+#ifdef SUPERNOVA
+
+#include "vtkPNrrdReader.h"
+#include "vtkImageResample.h"
+
+#else
+
+#include "vtkSampleFunction.h"
+#include "vtkTangle.h"
+
+static int EXTENT = 512;
+
+#endif
+
 
 #include "Stats.h"
 
 static const float ISO_START=0.045;
 static const float ISO_STEP=0.005;
 static const int ISO_NUM=10;
-// Just pick a tag which is available
-static const int ISO_VALUE_RMI_TAG=300;
-static const int ISO_OUTPUT_TAG=301;
 
 Timer timer;
 
-struct ParallelIsoArgs_tmp
+void process(vtkMultiProcessController* controller, void* vtkNotUsed(arg))
 {
-  int* retVal;
-  int argc;
-  char** argv;
-};
+    int myId = controller->GetLocalProcessId();
 
-struct ParallelIsoRMIArgs_tmp
-{
-  ISOALGO* ContourFilter;
-  vtkMultiProcessController* Controller;
-  vtkElevationFilter* Elevation;
-};
+    // Setup data source and filter pipeline
 
-// call back to set the iso surface value.
-void SetIsoValueRMI(void *localArg, void* vtkNotUsed(remoteArg),
-                    int vtkNotUsed(remoteArgLen), int vtkNotUsed(id))
-{
-  ParallelIsoRMIArgs_tmp* args = (ParallelIsoRMIArgs_tmp*)localArg;
+#ifdef SUPERNOVA
+    vtkNew<vtkPNrrdReader> reader;
+    std::string file = "/home/csewell/CGABenchmarks/data/normal_1349.nhdr";
+    reader->SetFileName(file.c_str());
 
-  float val;
+    vtkNew<vtkImageResample> resample;
+    double resampleSize = 1.0f;
+    resample->SetInputConnection(reader->GetOutputPort());
+    resample->SetAxisMagnificationFactor(0,resampleSize);
+    resample->SetAxisMagnificationFactor(1,resampleSize);
+    resample->SetAxisMagnificationFactor(2,resampleSize);
+    resample->UpdateInformation();
+    resample->SetUpdateExtent(controller->GetLocalProcessId(),
+       controller->GetNumberOfProcesses(), 0 );
 
-  ISOALGO *iso = args->ContourFilter;
-  val = iso->GetValue(0);
-  iso->SetValue(0, val + ISO_STEP);
-  args->Elevation->Update();
+    resample->Update();
+#else
+    vtkNew<vtkTangle> tangle;
 
-  vtkPolyData* output = iso->GetOutput();
-  int numPoints[1];
-  numPoints[0] = output->GetNumberOfPoints();
-  std::cout << (iso->GetValue(0)) << " " << numPoints[0] << std::endl;
+    int rank = controller->GetLocalProcessId();
+    vtkNew<vtkSampleFunction> sampler;
+    sampler->SetImplicitFunction(tangle.GetPointer());
+    sampler->SetModelBounds(-1, 1, -1, 1, -1, 1);
+    sampler->SetSampleDimensions(EXTENT, EXTENT, EXTENT);
+    sampler->ComputeNormalsOff();
+    sampler->UpdateInformation();
+    sampler->SetUpdateExtent(controller->GetLocalProcessId(),
+       controller->GetNumberOfProcesses(), 0 );
+    sampler->Update();
 
-  vtkMultiProcessController* contrl = args->Controller;
-  contrl->Send(/*args->Elevation->GetOutput()*/numPoints, 1, 0, ISO_OUTPUT_TAG);
-}
+    if (rank == 1) {
+        std::cout << controller->GetNumberOfProcesses() << std::endl;
+        std::cout << sampler->GetOutput()->GetNumberOfCells()
+                  << std::endl;
+        }
+#endif
 
+    vtkNew<vtkMarchingCubes> isosurface;
+   
+#ifdef SUPERNOVA
+    isosurface->SetInputData(resample->GetOutput());
+    isosurface->SetValue(0, ISO_START);
+#else
+    isosurface->SetInputData(sampler->GetOutput());
+    isosurface->SetValue(0, 0.3);
+#endif
+    
+    isosurface->ComputeScalarsOff();
+    isosurface->ComputeGradientsOff();
+    isosurface->ComputeNormalsOn();
 
-// This will be called by all processes
-void MyMain( vtkMultiProcessController *controller, void *arg )
-{
-  vtkPNrrdReader *reader;
-  ISOALGO *iso;
-  vtkElevationFilter *elev;
-  int myid, numProcs;
-  float val;
-  ParallelIsoArgs_tmp* args = reinterpret_cast<ParallelIsoArgs_tmp*>(arg);
+    vtkNonMergingPointLocator* simpleLocator = vtkNonMergingPointLocator::New();
+    isosurface->SetLocator(simpleLocator);
 
-  // Obtain the id of the running process and the total
-  // number of processes
-  myid = controller->GetLocalProcessId();
-  numProcs = controller->GetNumberOfProcesses();
-
-  // Create the reader, the data file name might have
-  // to be changed depending on where the data files are.
-  //char* fname = vtkTestUtilities::ExpandDataFileName(args->argc, args->argv,
-  //                                                   "Data/headsq/quarter");
-  reader = vtkPNrrdReader::New();
-  //reader->SetDataByteOrderToLittleEndian();
-  //reader->SetDataExtent(0, 63, 0, 63, 1, 93);
-  //reader->SetFilePrefix(fname);
-  //reader->SetDataSpacing(3.2, 3.2, 1.5);
-  //delete[] fname;
-
-  reader = vtkPNrrdReader::New();
-  std::string file = "/home/csewell/CGABenchmarks/data/normal_1349.nhdr";
-  reader->SetFileName(file.c_str());
-  reader->Update();
-
-  // Iso-surface.
-  iso = ISOALGO::New();
-  iso->SetInputConnection(reader->GetOutputPort());
-  iso->SetValue(0, ISO_START);
-  iso->ComputeScalarsOff();
-  iso->ComputeGradientsOff();
-  iso->ComputeNormalsOn();
-
-  // Compute a different color for each process.
-  elev = vtkElevationFilter::New();
-  elev->SetInputConnection(iso->GetOutputPort());
-  val = (myid+1) / static_cast<float>(numProcs);
-  elev->SetScalarRange(val, val+0.001);
-
-  // Tell the pipeline which piece we want to update.
-  vtkStreamingDemandDrivenPipeline* exec =
-    vtkStreamingDemandDrivenPipeline::SafeDownCast(elev->GetExecutive());
-  exec->SetUpdateNumberOfPieces(exec->GetOutputInformation(0), numProcs);
-  exec->SetUpdatePiece(exec->GetOutputInformation(0), myid);
-
-  if (myid != 0)
-    {
-    // If I am not the root process
-    ParallelIsoRMIArgs_tmp args2;
-    args2.ContourFilter = iso;
-    args2.Controller = controller;
-    args2.Elevation = elev;
-
-    // Last, set up a RMI call back to change the iso surface value.
-    // This is done so that the root process can let this process
-    // know that it wants the contour value to change.
-    controller->AddRMI(SetIsoValueRMI, (void *)&args2, ISO_VALUE_RMI_TAG);
-    controller->ProcessRMIs();
-    }
-  else
-    {
-    // Create the rendering part of the pipeline
-    /*vtkAppendPolyData *app = vtkAppendPolyData::New();
-    vtkRenderer *ren = vtkRenderer::New();
-    vtkRenderWindow *renWindow = vtkRenderWindow::New();
-    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
-    vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-    vtkActor *actor = vtkActor::New();
-    vtkCamera *cam = vtkCamera::New();
-    renWindow->AddRenderer(ren);
-    iren->SetRenderWindow(renWindow);
-    ren->SetBackground(0.9, 0.9, 0.9);
-    renWindow->SetSize( 400, 400);
-    mapper->SetInputConnection(app->GetOutputPort());
-    actor->SetMapper(mapper);
-    ren->AddActor(actor);
-    cam->SetFocalPoint(100, 100, 65);
-    cam->SetPosition(100, 450, 65);
-    cam->SetViewUp(0, 0, -1);
-    cam->SetViewAngle(30);
-    cam->SetClippingRange(177.0, 536.0);
-    ren->SetActiveCamera(cam);*/
-
+    controller->Barrier();
+    const size_t MAX_ITERATIONS = 1;
+    std::vector<double> samples;
+    samples.reserve(MAX_ITERATIONS);
     timer.Reset();
-    
-    // loop through some iso surface values.
+ 
+#ifdef SUPERNOVA
     for (int j = 0; j < ISO_NUM; ++j)
-      {
-      // set the local value
-      iso->SetValue(0, iso->GetValue(0) + ISO_STEP);
-      elev->Update();
+    {
+        isosurface->SetValue(0, isosurface->GetValue(0) + ISO_STEP);
+        isosurface->Update();
+        controller->Barrier();
+        vtkPolyData* output = isosurface->GetOutput();
+        std::cout << (isosurface->GetValue(0)) << " " << output->GetNumberOfPoints() << std::endl;
+    }
+#else
+    isosurface->Update();
+    controller->Barrier();
+#endif
 
-      vtkPolyData* output = iso->GetOutput();
-      std::cout << (iso->GetValue(0)) << " " << output->GetNumberOfPoints() << std::endl;
+    if (myId == 0)
+    {
+      samples.push_back(timer.GetElapsedTime());
 
-      for (int i = 1; i < numProcs; ++i)
-        {
-        // trigger the RMI to change the iso surface value.
-        controller->TriggerRMI(i, ISO_VALUE_RMI_TAG);
-        }
-      for (int i = 1; i < numProcs; ++i)
-        {
-        int sync; //vtkPolyData* pd = vtkPolyData::New();
-        controller->Receive(&sync/*pd*/, 1, i, ISO_OUTPUT_TAG);
-        /*if (j == ISO_NUM - 1)
-          {
-          app->AddInputData(pd);
-          }
-        pd->Delete();*/
-        }
-      }  
-
-    // Tell the other processors to stop processing RMIs.
-    for (int i = 1; i < numProcs; ++i)
-      {
-      controller->TriggerRMI(i, vtkMultiProcessController::BREAK_RMI_TAG);
-      }
-    
-
-    /*vtkPolyData* outputCopy = vtkPolyData::New();
-    outputCopy->ShallowCopy(elev->GetOutput());
-    app->AddInputData(outputCopy);
-    outputCopy->Delete();
-    app->Update();
-    renWindow->Render();
-
-    *(args->retVal) =
-      vtkRegressionTester::Test(args->argc, args->argv, renWindow, 10);
-
-    if ( *(args->retVal) == vtkRegressionTester::DO_INTERACTOR)
-      {
-      iren->Start();
-      }
-
-    // Clean up
-    app->Delete();
-    ren->Delete();
-    renWindow->Delete();
-    iren->Delete();
-    mapper->Delete();
-    actor->Delete();
-    cam->Delete();*/
+      std::sort(samples.begin(), samples.end());
+      stats::Winsorize(samples, 5.0);
+      std::cout << "Benchmark \'VTK MPI Isosurface\' results:\n"
+          << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
+          << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
+          << "\tmean = " << stats::Mean(samples) << "s\n"
+          << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
+          << "\tmin = " << samples.front() << "s\n"
+          << "\tmax = " << samples.back() << "s\n"
+          << "\t# of runs = " << samples.size() << "\n";
     }
 
-  // clean up objects in all processes.
-  reader->Delete();
-  iso->Delete();
-  elev->Delete();
+#ifdef RENDER_OUTPUT
+
+    vtkNew<vtkProcessIdScalars> procId;
+    procId->SetInputData(isosurface->GetOutput());
+    procId->SetController(controller);
+
+    // Rendering objects.
+    vtkNew<vtkPolyDataMapper> mapper;
+    mapper->SetInputConnection(procId->GetOutputPort());
+    mapper->ImmediateModeRenderingOff();
+    mapper->CreateDefaultLookupTable();
+    mapper->SetScalarRange(0, controller->GetNumberOfProcesses());
+    mapper->SetNumberOfPieces(controller->GetNumberOfProcesses());
+    mapper->SetPiece(controller->GetLocalProcessId());
+
+    // IMPORTANT: We need to call Update() after setting up NumberOfPieces and
+    //            Piece correctly
+    mapper->Update();
+
+#ifndef SUPERNOVA
+    std::cout << "Actual vtkImageData memory size on process "
+	      << myId << ": "
+	      << sampler->GetOutput()->GetActualMemorySize()
+	      << " KiB" << std::endl;
+#endif
+    std::cout << "Number of polygon cells on process " << myId << ": "
+	      << procId->GetOutput()->GetNumberOfCells() << endl;
+
+    vtkNew<vtkActor> actor;
+    actor->SetMapper(mapper.GetPointer());
+
+    vtkNew<vtkRenderer> renderer;
+    renderer->AddActor(actor.GetPointer());
+
+    vtkNew<vtkRenderWindow> renWin;
+    renWin->AddRenderer(renderer.GetPointer());
+    renWin->SetSize(640, 480);
+
+    vtkNew<vtkRenderWindowInteractor> iren;
+    iren->SetRenderWindow(renWin.GetPointer());
+
+    vtkNew<vtkCompositeRenderManager> renderManager;
+    renderManager->SetController(controller);
+    renderManager->SetRenderWindow(renWin.GetPointer());
+    renderManager->InitializePieces();
+    renderManager->InitializeRMIs();
+
+    if (myId == 0)
+        renderManager->ResetAllCameras();
+
+    // Only the root process will have an active interactor. All
+    // the other render windows will be slaved to the root.
+    renderManager->StartInteractor();
+#endif
 }
 
-
-int main( int argc, char* argv[] )
+int main(int argc, char* argv[])
 {
-  // This is here to avoid false leak messages from vtkDebugLeaks when
-  // using mpich. It appears that the root process which spawns all the
-  // main processes waits in MPI_Init() and calls exit() when
-  // the others are done, causing apparent memory leaks for any objects
-  // created before MPI_Init().
-  MPI_Init(&argc, &argv);
+    vtkNew<vtkMPIController> controller;
+    controller->Initialize(&argc, &argv);
 
-  std::vector<double> samples;
+    // Execute the function named "process" on all processes
+    controller->SetSingleMethod(process, 0);
+    controller->SingleMethodExecute();
 
-  //const double MAX_RUNTIME = 30;
-  const size_t MAX_ITERATIONS = 1;
-  samples.reserve(MAX_ITERATIONS);
-  size_t iter = 0;
-  //Timer timer;
+    // Clean-up and exit
+    controller->Finalize();
 
-  // Note that this will create a vtkMPIController if MPI
-  // is configured, vtkThreadedController otherwise.
-  vtkMPIController* controller = vtkMPIController::New();
-
-  controller->Initialize(&argc, &argv, 1);
-
-  // Added for regression test.
-  // ----------------------------------------------
-  int retVal = 1;
-  ParallelIsoArgs_tmp args;
-  args.retVal = &retVal;
-  args.argc = argc;
-  args.argv = argv;
-  // ----------------------------------------------
-
-  int myId = controller->GetLocalProcessId();
-  controller->SetSingleMethod(MyMain, &args);
-  
-  //timer.Reset();
-  controller->SingleMethodExecute();
-  controller->Barrier();
-
-  if (myId == 0)
-  {
-    samples.push_back(timer.GetElapsedTime());
-
-    std::sort(samples.begin(), samples.end());
-    stats::Winsorize(samples, 5.0);
-    std::cout << "Benchmark \'VTK MPI Isosurface\' results:\n"
-        << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
-        << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
-        << "\tmean = " << stats::Mean(samples) << "s\n"
-        << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
-        << "\tmin = " << samples.front() << "s\n"
-        << "\tmax = " << samples.back() << "s\n"
-        << "\t# of runs = " << samples.size() << "\n";
-  }
-
-  controller->Finalize();
-  controller->Delete();
-
-  return !retVal;
+    return 0;
 }
-
-
-
-
 

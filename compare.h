@@ -41,7 +41,7 @@ ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleS
   //make sure we are testing float benchmarks only
   assert(sizeof(float) == sizeof(vtkm::Float32));
 
-  std::cout << "loading file: " << file << std::endl;
+  std::cout << "loading file: " << file << " " << resampleSize << std::endl;
   vtkNew<vtkNrrdReader> reader;
   reader->SetFileName(file.c_str());
   reader->Update();
