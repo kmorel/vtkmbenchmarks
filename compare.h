@@ -100,10 +100,12 @@ int RunComparison(std::string device,
                                  targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
   }
 
+#ifdef PISTON_ENABLED
   std::cout << "pistonMarchingCubes,Accelerator,Cores,Time,Trial" << std::endl;
   {
   piston::RunIsoSurfaceUniformGrid(buffer, image, device,
                                    targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
   }
+#endif
   return 0;
 }
