@@ -70,45 +70,50 @@ set_target_properties(BenchmarkSerial PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_
 
 
 #Add TBB version
-add_executable(BenchmarkTBB
-  ${srcs}
-  ${headers}
-  mainTBB.cxx
-  )
+option(ENABLE_TBB "Benchmark TBB Backend" ON)
+if(${ENABLE_TBB})
+  add_executable(BenchmarkTBB
+    ${srcs}
+    ${headers}
+    mainTBB.cxx
+    )
 
-target_link_libraries(BenchmarkTBB
-  vtkCommonCore
-  vtkCommonDataModel
-  vtkCommonExecutionModel
-  vtkCommonMisc
-  vtkFiltersCore
-  vtkFiltersGeometry
-  vtkImagingCore
-  vtkIOImage
-  vtkIOLegacy
-  ${TBB_LIBRARIES}
-  )
+  target_link_libraries(BenchmarkTBB
+    vtkCommonCore
+    vtkCommonDataModel
+    vtkCommonExecutionModel
+    vtkCommonMisc
+    vtkFiltersCore
+    vtkFiltersGeometry
+    vtkImagingCore
+    vtkIOImage
+    vtkIOLegacy
+    ${TBB_LIBRARIES}
+    )
 
-set_target_properties(BenchmarkTBB PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB")
+  set_target_properties(BenchmarkTBB PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB")
+endif() # TBB
 
 #Add CUDA version
-cuda_add_executable(BenchmarkCuda
-  ${srcs}
-  ${headers}
-  mainCuda.cu
-  )
+option(ENABLE_CUDA "Benchmark CUDA Backend" ON)
+if(${ENABLE_CUDA})
+  cuda_add_executable(BenchmarkCuda
+    ${srcs}
+    ${headers}
+    mainCuda.cu
+    )
 
-target_link_libraries(BenchmarkCuda
-  vtkCommonCore
-  vtkCommonDataModel
-  vtkCommonExecutionModel
-  vtkCommonMisc
-  vtkFiltersCore
-  vtkFiltersGeometry
-  vtkImagingCore
-  vtkIOImage
-  vtkIOLegacy
-  )
+  target_link_libraries(BenchmarkCuda
+    vtkCommonCore
+    vtkCommonDataModel
+    vtkCommonExecutionModel
+    vtkCommonMisc
+    vtkFiltersCore
+    vtkFiltersGeometry
+    vtkImagingCore
+    vtkIOImage
+    vtkIOLegacy
+    )
 
-set_target_properties(BenchmarkCuda PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA")
-
+  set_target_properties(BenchmarkCuda PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA")
+endif() # CUDA
