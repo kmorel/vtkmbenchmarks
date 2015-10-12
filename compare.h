@@ -16,6 +16,7 @@
 
 //marching cubes algorithms
 #include "compare_vtkm_mc.h"
+#include "compare_vtkm_fe.h"
 #include "compare_vtk_mc.h"
 #ifdef PISTON_ENABLED
 #include "compare_piston_mc.h"
@@ -47,18 +48,17 @@ ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleS
   reader->Update();
 
   //re-sample the dataset
-  /*vtkNew<vtkImageResample> resample;
+  vtkNew<vtkImageResample> resample;
   resample->SetInputConnection(reader->GetOutputPort());
   resample->SetAxisMagnificationFactor(0,resampleSize);
   resample->SetAxisMagnificationFactor(1,resampleSize);
   resample->SetAxisMagnificationFactor(2,resampleSize);
 
-  resample->Update();*/
-reader->Update();
+  resample->Update();
 
   //take ref
   vtkSmartPointer<vtkImageData> image = vtkSmartPointer<vtkImageData>::New();
-  vtkImageData *newImageData = vtkImageData::SafeDownCast(reader->GetOutputDataObject(0)); //resample->GetOutputDataObject(0));
+  vtkImageData *newImageData = vtkImageData::SafeDownCast(resample->GetOutputDataObject(0));
   image.TakeReference( newImageData );
   image->Register(NULL);
 
@@ -97,6 +97,12 @@ int RunComparison(std::string device,
   std::cout << "vtkmIsoSurfaceUniformGrid,Accelerator,Cores,Time,Trial" << std::endl;
   {
   vtkm::RunIsoSurfaceUniformGrid(buffer, image, device,
+                                 targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
+  }
+
+  std::cout << "vtkmFlyingEdgesUniformGrid,Accelerator,Cores,Time,Trial" << std::endl;
+  {
+  vtkm::RunFlyginEdgesUniformGrid(buffer, image, device,
                                  targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
   }
 

@@ -40,6 +40,7 @@ set(headers
   compare.h
   compare_vtk_mc.h
   compare_vtkm_mc.h
+  compare_vtkm_fe.h
   )
 
 set(srcs
