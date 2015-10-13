@@ -7,8 +7,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${mccompare_SOURCE_DIR})
 find_package(VTKm REQUIRED)
 include(VTKmMacros)
 vtkm_configure_device(Serial)
-vtkm_configure_device(TBB)
-vtkm_configure_device(Cuda)
 
 find_package(VTK 6.2
   COMPONENTS
@@ -72,6 +70,8 @@ set_target_properties(BenchmarkSerial PROPERTIES COMPILE_FLAGS "-DTHRUST_DEVICE_
 #Add TBB version
 option(ENABLE_TBB "Benchmark TBB Backend" ON)
 if(${ENABLE_TBB})
+  vtkm_configure_device(TBB)
+
   add_executable(BenchmarkTBB
     ${srcs}
     ${headers}
@@ -97,6 +97,8 @@ endif() # TBB
 #Add CUDA version
 option(ENABLE_CUDA "Benchmark CUDA Backend" ON)
 if(${ENABLE_CUDA})
+  vtkm_configure_device(Cuda)
+
   cuda_add_executable(BenchmarkCuda
     ${srcs}
     ${headers}
