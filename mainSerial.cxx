@@ -26,13 +26,7 @@ int main(int argc, char* argv[])
     return 1;
     }
 
-  const std::string file = parser.file();
-  const std::string writeLoc = parser.writeLocation();
-
-  const float isoValue = parser.isovalue();
-  const double ratio = parser.ratio();
-
-  RunComparison("Serial", file, writeLoc, 1, 1, isoValue, ratio);
+  RunComparison("Serial", parser);
 
   return 0;
 }

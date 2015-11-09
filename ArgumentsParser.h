@@ -34,11 +34,17 @@ public:
   float isovalue() const
     { return this->IsoValue; }
 
+  float isovalue_step() const
+  { return this->IsoValueStep; }
+
+  int num_iso() const
+  { return this->NumIso; }
+
+  int num_trials() const
+  { return this->NumTrials; }
+
   double ratio() const
     { return this->Ratio; }
-
-  int cores() const
-    { return this->Cores; }
 
   std::string writeLocation() const
     { return this->WriteLocation; }
@@ -47,8 +53,10 @@ private:
   std::string File;
   std::string WriteLocation;
   float IsoValue;
+  float IsoValueStep;
+  int NumIso;
+  int NumTrials;
   double Ratio;
-  int Cores;
 };
 
 }}

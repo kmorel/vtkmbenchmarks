@@ -16,7 +16,6 @@
 
 //marching cubes algorithms
 #include "compare_vtkm_mc.h"
-#include "compare_vtk_mc.h"
 #ifdef PISTON_ENABLED
 #include "compare_piston_mc.h"
 #endif
@@ -26,6 +25,7 @@
 #include <vtkDataArray.h>
 #include <vtkImageData.h>
 #include <vtkImageResample.h>
+#include <vtkNew.h>
 #include <vtkNrrdReader.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
@@ -33,34 +33,52 @@
 #include <iostream>
 #include <vector>
 
+#include "ArgumentsParser.h"
+
 static const int NUM_TRIALS = 10;
 
 static vtkSmartPointer<vtkImageData>
-ReadData(std::vector<vtkm::Float32> &buffer, std::string file,  double resampleSize=1.0)
+ReadData(std::vector<vtkm::Float32> &buffer,
+         std::string file,
+         double resampleSize=1.0)
 {
   //make sure we are testing float benchmarks only
   assert(sizeof(float) == sizeof(vtkm::Float32));
 
-  std::cout << "loading file: " << file << " " << resampleSize << std::endl;
+  vtkSmartPointer<vtkImageData> image;
+
+  std::cout << "# Loading file: " << file << " " << resampleSize << std::endl;
   vtkNew<vtkNrrdReader> reader;
   reader->SetFileName(file.c_str());
   reader->Update();
 
-  //re-sample the dataset
-  /*vtkNew<vtkImageResample> resample;
-  resample->SetInputConnection(reader->GetOutputPort());
-  resample->SetAxisMagnificationFactor(0,resampleSize);
-  resample->SetAxisMagnificationFactor(1,resampleSize);
-  resample->SetAxisMagnificationFactor(2,resampleSize);
+  if (resampleSize == 1.0)
+  {
+    reader->Update();
 
-  resample->Update();*/
-reader->Update();
+    //take ref
+    vtkImageData *newImageData =
+        vtkImageData::SafeDownCast(reader->GetOutputDataObject(0));
+    image.TakeReference( newImageData );
+    image->Register(NULL);
+  }
+  else
+  {
+    //re-sample the dataset
+    vtkNew<vtkImageResample> resample;
+    resample->SetInputConnection(reader->GetOutputPort());
+    resample->SetAxisMagnificationFactor(0,resampleSize);
+    resample->SetAxisMagnificationFactor(1,resampleSize);
+    resample->SetAxisMagnificationFactor(2,resampleSize);
 
-  //take ref
-  vtkSmartPointer<vtkImageData> image = vtkSmartPointer<vtkImageData>::New();
-  vtkImageData *newImageData = vtkImageData::SafeDownCast(reader->GetOutputDataObject(0)); //resample->GetOutputDataObject(0));
-  image.TakeReference( newImageData );
-  image->Register(NULL);
+    resample->Update();
+
+    //take ref
+    vtkImageData *newImageData =
+        vtkImageData::SafeDownCast(resample->GetOutputDataObject(0));
+    image.TakeReference( newImageData );
+    image->Register(NULL);
+  }
 
   //now set the buffer
   vtkDataArray *newData = image->GetPointData()->GetScalars();
@@ -73,39 +91,22 @@ reader->Update();
 
 
 int RunComparison(std::string device,
-                  std::string file,
-                  std::string writeLoc,
-                  int targetNumCores,
-                  int maxNumCores,
-                  float isoValue,
-                  double resampleRatio)
+                  const vtkm::testing::ArgumentsParser &arguments)
 {
   std::vector<vtkm::Float32> buffer;
-  vtkSmartPointer< vtkImageData > image = ReadData(buffer, file, resampleRatio);
+  vtkSmartPointer< vtkImageData > image =
+      ReadData(buffer, arguments.file(), arguments.ratio());
 
-  //get dims of image data
+  std::cout << "# Filename: " << arguments.file() << std::endl;
   int dims[3]; image->GetDimensions(dims);
-  std::cout << "data dims are: " << dims[0] << ", " << dims[1] << ", " << dims[2] << std::endl;
+  std::cout << "# Data dims are: " << dims[0] << ", " << dims[1] << ", " << dims[2] << std::endl;
 
-  std::cout << "vtkMarchingCubes,Accelerator,Cores,Time,Trial" << std::endl;
-  {
-  const int singleCore = 1;
-  vtk::RunImageMarchingCubes(image, device,
-                             singleCore, maxNumCores, isoValue, NUM_TRIALS);
-  }
-
-  std::cout << "vtkmIsoSurfaceUniformGrid,Accelerator,Cores,Time,Trial" << std::endl;
-  {
-  vtkm::RunIsoSurfaceUniformGrid(buffer, image, device,
-                                 targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
-  }
+  vtkm::RunIsoSurfaceUniformGrid(buffer, image, device, arguments);
 
 #ifdef PISTON_ENABLED
-  std::cout << "pistonMarchingCubes,Accelerator,Cores,Time,Trial" << std::endl;
-  {
   piston::RunIsoSurfaceUniformGrid(buffer, image, device,
                                    targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
-  }
 #endif
+
   return 0;
 }

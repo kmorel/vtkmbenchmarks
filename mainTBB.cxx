@@ -27,15 +27,9 @@ int main(int argc, char* argv[])
     return 1;
     }
 
-  const std::string file = parser.file();
-  const std::string writeLoc = parser.writeLocation();
+//  int maxNumCores = tbb::task_scheduler_init::default_num_threads();
 
-  const float isoValue = parser.isovalue();
-  const double ratio = parser.ratio();
-  const int targetNumCores = parser.cores();
-  int maxNumCores = tbb::task_scheduler_init::default_num_threads();
-
-  RunComparison("TBB", file, writeLoc, targetNumCores, maxNumCores, isoValue, ratio);
+  RunComparison("TBB", parser);
 
   return 0;
 }

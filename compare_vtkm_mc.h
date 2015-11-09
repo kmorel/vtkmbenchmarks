@@ -26,17 +26,15 @@
 
 #include <vector>
 
-#include "Stats.h"
+#include "ArgumentsParser.h"
 
 namespace vtkm
 {
-static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
-                                     vtkImageData* image,
-                                     const std::string& device,
-                                     int numCores,
-                                     int maxNumCores,
-                                     float isoValue,
-                                     int MAX_NUM_TRIALS)
+static void RunIsoSurfaceUniformGrid(
+    const std::vector<vtkm::Float32>& buffer,
+    vtkImageData* image,
+    const std::string& device,
+    const vtkm::testing::ArgumentsParser &arguments)
 {
 
   typedef VTKM_DEFAULT_DEVICE_ADAPTER_TAG DeviceAdapter;
@@ -70,36 +68,30 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
                                                DeviceAdapter> isosurfaceFilter(cellDims, dataSet);
 
   vtkm::cont::Timer<> timer;
-  std::vector<double> samples;
-  samples.reserve(MAX_NUM_TRIALS);
-  timer.Reset();
 
-  for(int i=0; i<MAX_NUM_TRIALS; ++i)
+  float isoValue = arguments.isovalue();
+  for (int isoIndex = 0; isoIndex < arguments.num_iso(); isoIndex++)
   {
-    isosurfaceFilter.Run(isoValue,
-                         field,
-                         verticesArray,
-                         normalsArray,
-                         scalarsArray);
+    for (int trial = 0; trial < arguments.num_trials(); trial++)
+    {
+      timer.Reset();
+      isosurfaceFilter.Run(isoValue,
+                           field,
+                           verticesArray,
+                           normalsArray,
+                           scalarsArray);
+      vtkm::Float64 walltime = timer.GetElapsedTime();
 
-    std::cout << isoValue << " " << verticesArray.GetNumberOfValues() << std::endl;
-    isoValue += 0.005f;
+      std::cout
+          << "- device         : " << device << std::endl
+          << "  implementation : VTK-m MC" << std::endl
+          << "  trial          : " << trial << std::endl
+          << "  seconds        : " << walltime << std::endl
+          << "  isovalue       : " << isoValue << std::endl
+          << "  num vertices   : " << verticesArray.GetNumberOfValues() << std::endl;
+    }
+    isoValue += arguments.isovalue_step();
   }
-
-  samples.push_back(timer.GetElapsedTime());
-
-  std::sort(samples.begin(), samples.end());
-  stats::Winsorize(samples, 5.0);
-  std::cout << "Benchmark \'VTK-m Isosurface\' results:\n"
-        << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
-        << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
-        << "\tmean = " << stats::Mean(samples) << "s\n"
-        << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
-        << "\tmin = " << samples.front() << "s\n"
-        << "\tmax = " << samples.back() << "s\n"
-        << "\t# of runs = " << samples.size() << "\n";
-
-
 }
 
 }
