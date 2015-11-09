@@ -15,6 +15,9 @@
 //=============================================================================
 #define VTKM_DEVICE_ADAPTER VTKM_DEVICE_ADAPTER_TBB
 
+#include <thrust/detail/config.h>
+#define THRUST_DEVICE_BACKEND THRUST_DEVICE_BACKEND_TBB
+
 #include "ArgumentsParser.h"
 #include "compare.h"
 #include <tbb/task_scheduler_init.h>

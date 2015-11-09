@@ -104,8 +104,7 @@ int RunComparison(std::string device,
   vtkm::RunIsoSurfaceUniformGrid(buffer, image, device, arguments);
 
 #ifdef PISTON_ENABLED
-  piston::RunIsoSurfaceUniformGrid(buffer, image, device,
-                                   targetNumCores, maxNumCores, isoValue, NUM_TRIALS);
+  piston::RunIsoSurfaceUniformGrid(buffer, image, device, arguments);
 #endif
 
   return 0;

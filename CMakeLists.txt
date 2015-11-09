@@ -23,17 +23,6 @@ find_package(VTK 6.2
 
 include(${VTK_USE_FILE})
 
-option(ENABLE_PISTON "Benchmark piston comparison" OFF)
-if(${ENABLE_PISTON})
- find_path( PISTON_INCLUDE
-    NAMES piston/piston_math.h
-    DOC "Piston headers"
-    )
- include_directories(${PISTON_INCLUDE})
- add_definitions("-DPISTON_ENABLED")
-endif()
-
-
 set(headers
   compare.h
   compare_vtk_mc.h
@@ -43,6 +32,17 @@ set(headers
 set(srcs
   ArgumentsParser.cxx
   )
+
+option(ENABLE_PISTON "Benchmark piston comparison" OFF)
+if(${ENABLE_PISTON})
+ set(headers ${headers} compare_piston_mc.h)
+ find_path( PISTON_INCLUDE
+    NAMES piston/piston_math.h
+    DOC "Piston headers"
+    )
+ include_directories(${PISTON_INCLUDE})
+ add_definitions("-DPISTON_ENABLED")
+endif()
 
 set_source_files_properties(${headers} PROPERTIES HEADER_FILE_ONLY TRUE)
 

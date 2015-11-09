@@ -17,7 +17,9 @@
 #include <piston/marching_cube.h>
 #include <piston/image3d.h>
 
-#include "Stats.h"
+#include <vtkm/cont/Timer.h>
+
+#include "ArgumentsParser.h"
 
 namespace piston
 {
@@ -44,13 +46,11 @@ struct piston_scalar_image3d : piston::image3d<thrust::device_system_tag>
   }
 };
 
-static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
-                                     vtkImageData* image,
-                                     const std::string& device,
-                                     int numCores,
-                                     int maxNumCores,
-                                     float isoValue,
-                                     int MAX_NUM_TRIALS)
+static void RunIsoSurfaceUniformGrid(
+    const std::vector<vtkm::Float32>& buffer,
+    vtkImageData* image,
+    const std::string& device,
+    const vtkm::testing::ArgumentsParser &arguments)
 {
 
   int dims[3];
@@ -58,39 +58,33 @@ static void RunIsoSurfaceUniformGrid(const std::vector<vtkm::Float32>& buffer,
 
   typedef piston::marching_cube< piston_scalar_image3d,
                                  piston_scalar_image3d > MC;
-  
+
+  float isoValue = arguments.isovalue();
+
   piston_scalar_image3d pimage(dims[0],dims[1],dims[2],buffer);
   MC marching(pimage,pimage,isoValue);
 
   vtkm::cont::Timer<> timer;
-  std::vector<double> samples;
-  samples.reserve(MAX_NUM_TRIALS);
-  timer.Reset();
 
-  for(int i=0; i < MAX_NUM_TRIALS; ++i)
+  for (int isoIndex = 0; isoIndex < arguments.num_iso(); isoIndex++)
   {
-    //piston_scalar_image3d pimage(dims[0],dims[1],dims[2],buffer);
-    //MC marching(pimage,pimage,isoValue);
-    marching.set_isovalue(isoValue);
-    marching();
+    for (int trial = 0; trial < arguments.num_trials(); trial++)
+    {
+      timer.Reset();
+      marching.set_isovalue(isoValue);
+      marching();
+      vtkm::Float64 walltime = timer.GetElapsedTime();
 
-    std::cout << isoValue << " " << marching.num_total_vertices << std::endl;
-    isoValue += 0.005;
+      std::cout
+          << "- device         : " << device << std::endl
+          << "  implementation : PISTON MC" << std::endl
+          << "  trial          : " << trial << std::endl
+          << "  seconds        : " << walltime << std::endl
+          << "  isovalue       : " << isoValue << std::endl
+          << "  num vertices   : " << marching.num_total_vertices << std::endl;
+    }
+    isoValue += arguments.isovalue_step();
   }
-
-  samples.push_back(timer.GetElapsedTime());
-
-  std::sort(samples.begin(), samples.end());
-  stats::Winsorize(samples, 5.0);
-  std::cout << "Benchmark \'Piston Isosurface\' results:\n"
-        << "\tmedian = " << stats::PercentileValue(samples, 50.0) << "s\n"
-        << "\tmedian abs dev = " << stats::MedianAbsDeviation(samples) << "s\n"
-        << "\tmean = " << stats::Mean(samples) << "s\n"
-        << "\tstd dev = " << stats::StandardDeviation(samples) << "s\n"
-        << "\tmin = " << samples.front() << "s\n"
-        << "\tmax = " << samples.back() << "s\n"
-        << "\t# of runs = " << samples.size() << "\n";
-
 }
 
 }
