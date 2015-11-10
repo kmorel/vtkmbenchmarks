@@ -16,8 +16,10 @@
 #define VTKM_DEVICE_ADAPTER VTKM_DEVICE_ADAPTER_CUDA
 #define BOOST_SP_DISABLE_THREADS
 
+#ifdef PISTON_ENABLED
 #include <thrust/detail/config.h>
 #define THRUST_DEVICE_BACKEND THRUST_DEVICE_BACKEND_CUDA
+#endif
 
 #include "ArgumentsParser.h"
 #include "compare.h"

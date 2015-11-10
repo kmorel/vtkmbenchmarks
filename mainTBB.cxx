@@ -15,8 +15,10 @@
 //=============================================================================
 #define VTKM_DEVICE_ADAPTER VTKM_DEVICE_ADAPTER_TBB
 
+#ifdef PISTON_ENABLED
 #include <thrust/detail/config.h>
 #define THRUST_DEVICE_BACKEND THRUST_DEVICE_BACKEND_TBB
+#endif
 
 #include "ArgumentsParser.h"
 #include "compare.h"
